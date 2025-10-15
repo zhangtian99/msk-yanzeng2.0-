@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el.textContent = 'N/A');
         }
     };
-    
+
     const renderCurrentPage = () => {
         keysTableBody.innerHTML = '';
         keysTableStatus.textContent = '';
@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         prevPageBtn.disabled = currentPage === 1;
         nextPageBtn.disabled = currentPage >= totalPages;
     };
-    
+
     const loadViewPage = async () => {
         keysTableStatus.textContent = '正在加载...';
         try {
