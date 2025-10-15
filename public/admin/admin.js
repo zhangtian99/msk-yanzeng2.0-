@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allKeysCache = [];
     let currentPage = 1;
     const itemsPerPage = 10;
+    let currentTabView = 'all';
 
     // --- 3. DOM元素获取 ---
     const pages = { home: document.getElementById('page-home'), create: document.getElementById('page-create'), view: document.getElementById('page-view'), config: document.getElementById('page-config') };
@@ -24,8 +25,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const batchQuantityInput = document.getElementById('batchQuantityInput');
     const copyKeysBtn = document.getElementById('copyKeysBtn');
     const generatorStatus = document.getElementById('generatorStatus');
+    const keysTableHead = document.getElementById('keys-table-head');
     const keysTableBody = document.getElementById('keys-table-body');
     const keysTableStatus = document.getElementById('keys-table-status');
+    const tabLinks = document.querySelectorAll('.tab-link');
     const prevPageBtn = document.getElementById('prevPageBtn');
     const nextPageBtn = document.getElementById('nextPageBtn');
     const pageStartSpan = document.getElementById('pageStartSpan');
@@ -40,8 +43,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const keyTypeRadios = document.querySelectorAll('input[name="keyType"]');
     const trialDurationWrapper = document.getElementById('trialDurationWrapper');
     const trialDurationInput = document.getElementById('trialDurationInput');
+    const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
     // --- 4. 核心功能函数 ---
+    const showPage = (pageId) => {
+        const effectivePageId = pages[pageId] ? pageId : 'home';
+        Object.values(pages).forEach(page => page.classList.remove('active'));
+        pages[effectivePageId].classList.add('active');
+        sidebarLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.dataset.page === effectivePageId) link.classList.add('active');
+        });
+        if (effectivePageId === 'home') loadHomePage();
+        if (effectivePageId === 'view') loadViewPage();
+        if (effectivePageId === 'config') loadConfigPage();
+    };
+
     const loadHomePage = async () => {
         [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el.textContent = '...');
         try {
@@ -53,64 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
             } else { throw new Error(result.message); }
         } catch(error) {
             [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el.textContent = 'N/A');
-        }
-    };
-
-    const renderCurrentPage = () => {
-        keysTableBody.innerHTML = '';
-        keysTableStatus.textContent = '';
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        const keysForCurrentPage = allKeysCache.slice(startIndex, endIndex);
-        if (allKeysCache.length === 0) {
-            keysTableStatus.textContent = '没有找到任何密钥。';
-            return;
-        }
-        if (keysForCurrentPage.length === 0) {
-             keysTableStatus.innerHTML = `此页无数据。<br> (共 ${allKeysCache.length} 条记录)`;
-             return;
-        }
-        keysForCurrentPage.forEach(key => {
-            const tr = document.createElement('tr');
-            const keyType = key.key_type === 'trial' ? '试用' : '永久';
-            const expiresText = key.expires_at ? new Date(key.expires_at).toLocaleString() : 'N/A';
-            tr.innerHTML = `
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">${key.key_value}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${keyType === '试用' ? 'text-yellow-600' : 'text-green-600'}">${keyType}</td>
-                <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${key.validation_status === 'used' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${key.validation_status === 'used' ? '已激活' : '未激活'}</span></td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(key.created_at).toLocaleString()}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-4">
-                    <button title="复制" data-key-value="${key.key_value}" class="copy-btn text-blue-600 hover:underline">复制</button>
-                    <button title="删除" data-key-value="${key.key_value}" class="delete-btn text-red-600 hover:underline">删除</button>
-                </td>
-            `;
-            keysTableBody.appendChild(tr);
-        });
-    };
-
-    const updatePaginationControls = () => {
-        const totalItems = allKeysCache.length;
-        const totalPages = Math.ceil(totalItems / itemsPerPage);
-        pageStartSpan.textContent = totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
-        pageEndSpan.textContent = Math.min(currentPage * itemsPerPage, totalItems);
-        totalItemsSpan.textContent = totalItems;
-        prevPageBtn.disabled = currentPage === 1;
-        nextPageBtn.disabled = currentPage >= totalPages;
-    };
-
-    const loadViewPage = async () => {
-        keysTableStatus.textContent = '正在加载...';
-        try {
-            const result = await DataStore.getAllKeys(password);
-            if (result.success) {
-                allKeysCache = result.data;
-                currentPage = 1;
-                renderCurrentPage();
-                updatePaginationControls();
-            } else { throw new Error(result.message); }
-        } catch(error) {
-             keysTableStatus.textContent = `加载失败: ${error.message}`;
         }
     };
 
@@ -128,23 +89,138 @@ document.addEventListener('DOMContentLoaded', () => {
             feishuStatus.style.color = 'red';
         }
     };
-    
-    const showPage = (pageId) => {
-        const effectivePageId = pages[pageId] ? pageId : 'home';
-        Object.values(pages).forEach(page => page.classList.remove('active'));
-        pages[effectivePageId].classList.add('active');
-        sidebarLinks.forEach(link => {
-            link.classList.remove('active');
-            if (link.dataset.page === effectivePageId) link.classList.add('active');
+
+    const renderTableHeader = () => {
+        let headerContent = '<tr><th class="p-4"><input type="checkbox" id="selectAllCheckbox" class="h-4 w-4"></th>';
+        const baseHeaders = `
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">密钥值</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+        `;
+        if (currentTabView === 'all') {
+            headerContent += baseHeaders + `
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">过期时间</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+            `;
+        } else { // 'trial' view
+            headerContent += baseHeaders + `
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">过期时间</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+            `;
+        }
+        headerContent += '</tr>';
+        keysTableHead.innerHTML = headerContent;
+        // Re-bind event listener to the new checkbox
+        document.getElementById('selectAllCheckbox').addEventListener('click', () => {
+             keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = document.getElementById('selectAllCheckbox').checked);
+             updateBulkActionsToolbar();
         });
-        if (effectivePageId === 'home') loadHomePage();
-        if (effectivePageId === 'view') loadViewPage();
-        if (effectivePageId === 'config') loadConfigPage();
+    };
+    
+    const renderCurrentPage = () => {
+        keysTableBody.innerHTML = '';
+        keysTableStatus.textContent = '';
+        const filteredKeys = currentTabView === 'trial' ? allKeysCache.filter(key => key.key_type === 'trial') : allKeysCache;
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const keysForCurrentPage = filteredKeys.slice(startIndex, endIndex);
+
+        if (filteredKeys.length === 0) {
+            keysTableStatus.textContent = currentTabView === 'trial' ? '没有找到试用密钥。' : '没有找到任何密钥。';
+            return;
+        }
+        if (keysForCurrentPage.length === 0) {
+             keysTableStatus.textContent = '此页无数据。';
+             return;
+        }
+        keysForCurrentPage.forEach(key => {
+            const tr = document.createElement('tr');
+            const statusText = key.validation_status === 'used' ? '已激活' : '未激活';
+            const statusColor = key.validation_status === 'used' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            const keyType = key.key_type === 'trial' ? '试用' : '永久';
+            
+            let rowContent = `<td class="p-4"><input type="checkbox" class="key-checkbox h-4 w-4" data-key-value="${key.key_value}"></td>`;
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">${key.key_value}</td>`;
+            if (currentTabView === 'all') {
+                rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${keyType === '试用' ? 'text-yellow-600' : 'text-green-600'}">${keyType}</td>`;
+            }
+            rowContent += `<td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span></td>`;
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(key.created_at).toLocaleString()}</td>`;
+            
+            const expiresText = key.expires_at ? new Date(key.expires_at).toLocaleString() : 'N/A';
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>`;
+            
+            rowContent += `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-4">
+                    <button title="复制" data-key-value="${key.key_value}" class="copy-btn text-blue-600 hover:underline">复制</button>
+                    <button title="重置" data-key-value="${key.key_value}" class="reset-btn text-blue-600 hover:underline disabled:text-gray-400" ${key.validation_status !== 'used' ? 'disabled' : ''}>重置</button>
+                    <button title="删除" data-key-value="${key.key_value}" class="delete-btn text-red-600 hover:underline">删除</button>
+                </td>
+            `;
+            tr.innerHTML = rowContent;
+            keysTableBody.appendChild(tr);
+        });
+        updatePaginationControls(filteredKeys.length);
+    };
+
+    const updateBulkActionsToolbar = () => {
+        const selectedCheckboxes = keysTableBody.querySelectorAll('.key-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        bulkActionsToolbar.classList.toggle('hidden', count === 0);
+        selectedCountSpan.textContent = count;
+        const allVisibleCheckboxes = keysTableBody.querySelectorAll('.key-checkbox');
+        const selectAll = document.getElementById('selectAllCheckbox');
+        if(selectAll) {
+            selectAll.checked = allVisibleCheckboxes.length > 0 && count === allVisibleCheckboxes.length;
+        }
+    };
+
+    const updatePaginationControls = (totalItems) => {
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        const startIndex = (currentPage - 1) * itemsPerPage + 1;
+        const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
+        pageStartSpan.textContent = totalItems > 0 ? startIndex : 0;
+        pageEndSpan.textContent = endIndex;
+        totalItemsSpan.textContent = totalItems;
+        prevPageBtn.disabled = currentPage === 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+    };
+    
+    const loadViewPage = async () => {
+        keysTableStatus.textContent = '正在加载...';
+        try {
+            const result = await DataStore.getAllKeys(password);
+            if (result.success) {
+                allKeysCache = result.data;
+                currentPage = 1;
+                renderTableHeader();
+                renderCurrentPage();
+            } else { throw new Error(result.message); }
+        } catch(error) {
+             keysTableStatus.textContent = `加载失败: ${error.message}`;
+        }
     };
 
     // --- 5. 事件监听器绑定 ---
     sidebarLinks.forEach(link => link.addEventListener('click', () => showPage(link.dataset.page)));
     logoutBtn.addEventListener('click', () => { sessionStorage.removeItem('admin-token'); window.location.href = '/admin/login.html'; });
+
+    tabLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentTabView = link.dataset.tab;
+            tabLinks.forEach(tab => {
+                tab.classList.remove('border-blue-500', 'text-blue-600');
+                tab.classList.add('border-transparent', 'text-gray-500');
+            });
+            link.classList.add('border-blue-500', 'text-blue-600');
+            link.classList.remove('border-transparent', 'text-gray-500');
+            currentPage = 1;
+            renderTableHeader();
+            renderCurrentPage();
+        });
+    });
 
     const setStatusMessage = (el, message, isError = false, duration = 3000) => {
         el.textContent = message;
@@ -196,9 +272,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     keysTableBody.addEventListener('click', async (e) => {
         const target = e.target;
+        if (target.classList.contains('key-checkbox')) {
+            updateBulkActionsToolbar();
+            return;
+        }
         const keyValue = target.dataset.keyValue;
         if (!keyValue) return;
         if (target.classList.contains('copy-btn')) { navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!')); }
+        if (target.classList.contains('reset-btn')) {
+            if (confirm(`确定要重置密钥 "${keyValue}" 吗？`)) {
+                const result = await DataStore.resetKey(keyValue, password);
+                if (result.success) loadViewPage(); else alert(`重置失败: ${result.message}`);
+            }
+        }
         if (target.classList.contains('delete-btn')) {
             if (confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
                 const result = await DataStore.deleteKey(keyValue, password);
@@ -207,12 +293,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    deleteSelectedBtn.addEventListener('click', async () => {
+        const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
+        const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
+        if (keysToDelete.length === 0) return;
+        if (confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
+            const result = await DataStore.batchDeleteKeys(keysToDelete, password);
+            if(result.success) {
+                alert(result.message);
+                loadViewPage();
+            } else {
+                alert(`删除失败: ${result.message}`);
+            }
+        }
+    });
+
     prevPageBtn.addEventListener('click', () => {
-        if (currentPage > 1) { currentPage--; renderCurrentPage(); updatePaginationControls(); }
+        if (currentPage > 1) {
+            currentPage--;
+            renderCurrentPage();
+            updatePaginationControls();
+        }
     });
     nextPageBtn.addEventListener('click', () => {
-        const totalPages = Math.ceil(allKeysCache.length / itemsPerPage);
-        if (currentPage < totalPages) { currentPage++; renderCurrentPage(); updatePaginationControls(); }
+        const filteredKeys = currentTabView === 'trial' ? allKeysCache.filter(key => key.key_type === 'trial') : allKeysCache;
+        const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
+        if (currentPage < totalPages) {
+            currentPage++;
+            renderCurrentPage();
+            updatePaginationControls();
+        }
     });
     
     saveFeishuBtn.addEventListener('click', async () => {
