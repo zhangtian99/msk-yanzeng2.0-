@@ -1,0 +1,10 @@
+{
+  "name": "makesi-key-system",
+  "version": "1.0.0",
+  "description": "A full-stack key validation system.",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  }
+}

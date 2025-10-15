@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>密钥管理后台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        .sidebar-link { display: block; padding: 0.75rem 1.5rem; border-radius: 0.5rem; color: #374151; font-weight: 500; transition: all 0.2s; cursor: pointer; }
+        .sidebar-link:hover { background-color: #F3F4F6; }
+        .sidebar-link.active { background-color: #2563EB; color: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
+        .page-content { display: none; }
+        .page-content.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <aside class="w-64 bg-white/95 backdrop-blur-sm border-r border-gray-200 p-4">
+            <div class="mb-8 text-center"><h1 class="text-2xl font-bold text-gray-800">管理后台</h1></div>
+            <nav class="space-y-2">
+                <a class="sidebar-link active" data-page="home">首页</a>
+                <a class="sidebar-link" data-page="create">创建密钥</a>
+                <a class="sidebar-link" data-page="view">查看密钥</a>
+                <a class="sidebar-link" data-page="config">系统配置</a>
+            </nav>
+            <button id="logoutBtn" class="absolute bottom-4 w-56 text-left sidebar-link p-3 rounded-lg">退出登录</button>
+        </aside>
+
+        <main class="flex-1 p-10 overflow-y-auto">
+            <div id="page-home" class="page-content active">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">数据看板</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border"><h3 class="text-lg font-medium text-gray-500">密钥总数</h3><p class="text-4xl font-bold text-gray-900 mt-2" id="stats-total-keys">0</p></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border"><h3 class="text-lg font-medium text-gray-500">已使用数量</h3><p class="text-4xl font-bold text-green-600 mt-2" id="stats-used-keys">0</p></div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border"><h3 class="text-lg font-medium text-gray-500">未使用数量</h3><p class="text-4xl font-bold text-red-600 mt-2" id="stats-unused-keys">0</p></div>
+                </div>
+            </div>
+
+            <div id="page-create" class="page-content">
+                 <h2 class="text-3xl font-bold text-gray-800 mb-6">密钥生成器</h2>
+                 <div class="bg-white p-8 rounded-xl shadow-sm border">
+                     <p class="text-sm text-gray-500 mb-4">密钥格式为 MSK + 6位随机字符。生成后将自动保存到数据库。</p>
+                     <textarea id="generatedKeysDisplay" readonly class="w-full h-48 p-3 font-mono text-sm bg-gray-100 rounded-md mb-4"></textarea>
+                     <div class="flex flex-wrap items-center gap-4">
+                         <button id="generateSingleBtn" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg">生成单个</button>
+                         <div class="flex items-center gap-2">
+                             <button id="generateBatchBtn" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-lg">批量生成</button>
+                             <input type="number" id="batchQuantityInput" value="10" min="1" max="100" class="w-20 border-gray-300 rounded-md text-center">
+                             <span>个</span>
+                         </div>
+                         <button id="copyKeysBtn" class="bg-gray-700 text-white font-semibold py-2 px-5 rounded-lg disabled:bg-gray-400" disabled>一键复制</button>
+                     </div>
+                     <p id="generatorStatus" class="text-sm mt-4 h-5"></p>
+                 </div>
+            </div>
+
+            <div id="page-view" class="page-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">密钥列表</h2>
+                    <button id="deleteSelectedBtn" class="bg-red-600 text-white font-semibold py-2 px-5 rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed" disabled>
+                        删除选中 (<span id="selectedCount">0</span>)
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow-sm border">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="p-4">
+                                        <input type="checkbox" id="selectAllCheckbox" class="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">密钥值</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="keys-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                    <div class="p-4 flex items-center justify-between border-t border-gray-200">
+                        <button id="prevPageBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>上一页</button>
+                        <div class="text-sm text-gray-700">第 <span id="pageStartSpan">0</span> - <span id="pageEndSpan">0</span> 项 / 共 <span id="totalItemsSpan">0</span> 项</div>
+                        <button id="nextPageBtn" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50" disabled>下一页</button>
+                    </div>
+                    <p id="keys-table-status" class="text-center text-gray-500 py-8"></p>
+                </div>
+            </div>
+
+            <div id="page-config" class="page-content">
+                <h2 class="text-3xl font-bold text-gray-800 mb-6">系统配置</h2>
+                <div class="space-y-8 max-w-2xl">
+                    <div class="bg-white p-6 rounded-xl shadow-sm border">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">飞书模板链接</h3>
+                        <p class="text-sm text-gray-500 mb-4">此链接将用于用户前端验证成功后的跳转。</p>
+                        <div class="flex items-start gap-4">
+                            <div class="flex-grow">
+                                <input type="url" id="feishuLinkInput" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="https://example.feishu.cn/...">
+                                <p id="feishuStatus" class="text-sm mt-2 h-5"></p>
+                            </div>
+                            <button id="saveFeishuBtn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">保存</button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-sm border">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-1">苹果快捷指令链接</h3>
+                        <p class="text-sm text-gray-500 mb-4">此链接将用于用户前端验证成功后的跳转。</p>
+                        <div class="flex items-start gap-4">
+                            <div class="flex-grow">
+                                <input type="url" id="shortcutLinkInput" class="w-full border-gray-300 rounded-md shadow-sm" placeholder="https://www.icloud.com/shortcuts/...">
+                                <p id="shortcutStatus" class="text-sm mt-2 h-5"></p>
+                            </div>
+                            <button id="saveShortcutBtn" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg">保存</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/data-store.js"></script>
+    <script src="/admin/admin.js"></script>
+</body>
+</html>
