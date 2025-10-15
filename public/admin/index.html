@@ -70,17 +70,19 @@
 
             <div id="page-view" class="page-content">
                 <h2 class="text-3xl font-bold text-gray-800 mb-6">密钥列表</h2>
-                <div class="mb-4 border-b border-gray-200">
-                    <nav class="-mb-px flex space-x-8" aria-label="Tabs">
-                        <a href="#" data-tab="all" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600">全部密钥</a>
-                        <a href="#" data-tab="trial" class="tab-link whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">仅试用密钥</a>
-                    </nav>
-                </div>
                 <div class="bg-white rounded-lg shadow-sm border">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead id="keys-table-head" class="bg-gray-50">
-                                </thead>
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">密钥值</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">过期时间</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                                </tr>
+                            </thead>
                             <tbody id="keys-table-body" class="bg-white divide-y divide-gray-200"></tbody>
                         </table>
                     </div>
@@ -92,7 +94,7 @@
                     <p id="keys-table-status" class="text-center text-gray-500 py-8"></p>
                 </div>
             </div>
-
+            
             <div id="page-config" class="page-content">
                 <h2 class="text-3xl font-bold text-gray-800 mb-6">系统配置</h2>
                 <div class="space-y-8 max-w-2xl">
