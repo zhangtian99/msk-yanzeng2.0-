@@ -37,9 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortcutLinkInput = document.getElementById('shortcutLinkInput');
     const saveShortcutBtn = document.getElementById('saveShortcutBtn');
     const shortcutStatus = document.getElementById('shortcutStatus');
-    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    const selectedCountSpan = document.getElementById('selectedCount');
+    const keyTypeRadios = document.querySelectorAll('input[name="keyType"]');
+    const trialDurationWrapper = document.getElementById('trialDurationWrapper');
+    const trialDurationInput = document.getElementById('trialDurationInput');
 
     // --- 4. 核心功能函数 ---
     const showLoading = (element, message = "...") => {
@@ -62,28 +62,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    const loadConfigPage = async () => {
-        feishuLinkInput.value = '加载中...';
-        shortcutLinkInput.value = '加载中...';
-        try {
-            const result = await DataStore.getAdminConfig(password);
-            if (result.success) {
-                feishuLinkInput.value = result.data.FEISHU_TEMPLATE_LINK || '';
-                shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
-            } else { throw new Error(result.message); }
-        } catch(error) {
-            feishuStatus.textContent = `加载失败: ${error.message}`;
-            feishuStatus.style.color = 'red';
-        }
-    };
-    
     const renderCurrentPage = () => {
         keysTableBody.innerHTML = '';
         keysTableStatus.textContent = '';
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const keysForCurrentPage = allKeysCache.slice(startIndex, endIndex);
-
         if (allKeysCache.length === 0) {
             keysTableStatus.textContent = '没有找到任何密钥。';
             return;
@@ -95,7 +79,6 @@ document.addEventListener('DOMContentLoaded', () => {
         keysForCurrentPage.forEach(key => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td class="p-4"><input type="checkbox" class="key-checkbox h-4 w-4 text-blue-600" data-key-value="${key.key_value}"></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">${key.key_value}</td>
                 <td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${key.validation_status === 'used' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${key.validation_status === 'used' ? '已激活' : '未激活'}</span></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(key.created_at).toLocaleString()}</td>
@@ -120,19 +103,9 @@ document.addEventListener('DOMContentLoaded', () => {
         prevPageBtn.disabled = currentPage === 1;
         nextPageBtn.disabled = currentPage >= totalPages;
     };
-
-    const updateDeleteButtonState = () => {
-        const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
-        const count = selectedCheckboxes.length;
-        selectedCountSpan.textContent = count;
-        deleteSelectedBtn.disabled = count === 0;
-        const allCheckboxesOnPage = document.querySelectorAll('.key-checkbox');
-        selectAllCheckbox.checked = allCheckboxesOnPage.length > 0 && count === allCheckboxesOnPage.length;
-    };
-
+    
     const loadViewPage = async () => {
-        keysTableBody.innerHTML = '';
-        keysTableStatus.textContent = '正在加载密钥列表...';
+        keysTableStatus.textContent = '正在加载...';
         try {
             const result = await DataStore.getAllKeys(password);
             if (result.success) {
@@ -140,10 +113,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentPage = 1;
                 renderCurrentPage();
                 updatePaginationControls();
-                updateDeleteButtonState();
             } else { throw new Error(result.message); }
         } catch(error) {
              keysTableStatus.textContent = `加载失败: ${error.message}`;
+        }
+    };
+
+    const loadConfigPage = async () => {
+        feishuLinkInput.value = '加载中...';
+        shortcutLinkInput.value = '加载中...';
+        try {
+            const result = await DataStore.getAdminConfig(password);
+            if (result.success) {
+                feishuLinkInput.value = result.data.FEISHU_TEMPLATE_LINK || '';
+                shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
+            } else { throw new Error(result.message); }
+        } catch(error) {
+            feishuStatus.textContent = `加载失败: ${error.message}`;
+            feishuStatus.style.color = 'red';
         }
     };
     
@@ -164,122 +151,93 @@ document.addEventListener('DOMContentLoaded', () => {
     sidebarLinks.forEach(link => link.addEventListener('click', () => showPage(link.dataset.page)));
     logoutBtn.addEventListener('click', () => { sessionStorage.removeItem('admin-token'); window.location.href = '/admin/login.html'; });
 
-    const setGeneratorStatus = (message, isError = false) => {
-        generatorStatus.textContent = message;
-        generatorStatus.style.color = isError ? 'red' : 'green';
-        setTimeout(() => { generatorStatus.textContent = ''; }, 3000);
+    const setStatusMessage = (el, message, isError = false, duration = 3000) => {
+        el.textContent = message;
+        el.style.color = isError ? 'red' : 'green';
+        setTimeout(() => { el.textContent = ''; }, duration);
     };
 
     const handleGeneration = async (quantity) => {
         generateSingleBtn.disabled = true;
         generateBatchBtn.disabled = true;
-        setGeneratorStatus(`正在生成并保存 ${quantity} 个密钥...`);
+        const keyType = document.querySelector('input[name="keyType"]:checked').value;
+        const durationDays = keyType === 'trial' ? parseInt(trialDurationInput.value, 10) : null;
+        if (keyType === 'trial' && (!durationDays || durationDays <= 0)) {
+            setStatusMessage(generatorStatus, '请输入有效的试用天数。', true);
+            generateSingleBtn.disabled = false;
+            generateBatchBtn.disabled = false;
+            return;
+        }
+        setStatusMessage(generatorStatus, `正在生成并保存 ${quantity} 个密钥...`);
         try {
-            const result = await DataStore.generateAndSaveKeys(quantity, password);
+            const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, password);
             if (result.success) {
                 generatedKeysDisplay.value = result.generatedKeys.join('\n');
-                setGeneratorStatus(`成功保存 ${result.added_count} 个新密钥！`);
+                setStatusMessage(generatorStatus, `成功保存 ${result.added_count} 个新密钥！`);
                 copyKeysBtn.disabled = result.added_count === 0;
             } else { throw new Error(result.message); }
         } catch (error) {
-            setGeneratorStatus(`操作失败: ${error.message}`, true);
+            setStatusMessage(generatorStatus, `操作失败: ${error.message}`, true);
         }
         generateSingleBtn.disabled = false;
         generateBatchBtn.disabled = false;
     };
-
     generateSingleBtn.addEventListener('click', () => handleGeneration(1));
     generateBatchBtn.addEventListener('click', () => handleGeneration(parseInt(batchQuantityInput.value, 10) || 10));
     
+    keyTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (event) => {
+            trialDurationWrapper.classList.toggle('hidden', event.target.value !== 'trial');
+        });
+    });
+
     copyKeysBtn.addEventListener('click', () => {
         if (!generatedKeysDisplay.value) return;
         navigator.clipboard.writeText(generatedKeysDisplay.value).then(() => {
-            const originalText = copyKeysBtn.textContent;
             copyKeysBtn.textContent = '已复制!';
-            setTimeout(() => { copyKeysBtn.textContent = originalText; }, 2000);
+            setTimeout(() => { copyKeysBtn.textContent = '一键复制'; }, 2000);
         });
     });
 
     keysTableBody.addEventListener('click', async (e) => {
         const target = e.target;
-        if (target.classList.contains('key-checkbox')) {
-            updateDeleteButtonState();
-            return;
-        }
         const keyValue = target.dataset.keyValue;
         if (!keyValue) return;
-        if (target.classList.contains('copy-btn')) {
-            navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!'));
-        }
+        if (target.classList.contains('copy-btn')) { navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!')); }
         if (target.classList.contains('reset-btn')) {
-            if (confirm(`您确定要重置密钥 "${keyValue}" 吗？`)) {
+            if (confirm(`确定要重置密钥 "${keyValue}" 吗？`)) {
                 const result = await DataStore.resetKey(keyValue, password);
                 if (result.success) loadViewPage(); else alert(`重置失败: ${result.message}`);
             }
         }
         if (target.classList.contains('delete-btn')) {
-            if (confirm(`您确定要删除密钥 "${keyValue}" 吗？此操作不可撤销。`)) {
+            if (confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
                 const result = await DataStore.deleteKey(keyValue, password);
                 if (result.success) loadViewPage(); else alert(`删除失败: ${result.message}`);
             }
         }
     });
 
-    selectAllCheckbox.addEventListener('click', () => {
-        const allCheckboxesOnPage = document.querySelectorAll('.key-checkbox');
-        allCheckboxesOnPage.forEach(checkbox => checkbox.checked = selectAllCheckbox.checked);
-        updateDeleteButtonState();
-    });
-
-    deleteSelectedBtn.addEventListener('click', async () => {
-        const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
-        const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
-        if (keysToDelete.length === 0) return;
-        if (confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
-            const result = await DataStore.batchDeleteKeys(keysToDelete, password);
-            if(result.success) {
-                alert(result.message);
-                loadViewPage();
-            } else {
-                alert(`删除失败: ${result.message}`);
-            }
-        }
-    });
-
     prevPageBtn.addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderCurrentPage();
-            updatePaginationControls();
-        }
+        if (currentPage > 1) { currentPage--; renderCurrentPage(); updatePaginationControls(); }
     });
     nextPageBtn.addEventListener('click', () => {
         const totalPages = Math.ceil(allKeysCache.length / itemsPerPage);
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderCurrentPage();
-            updatePaginationControls();
-        }
+        if (currentPage < totalPages) { currentPage++; renderCurrentPage(); updatePaginationControls(); }
     });
     
-    const setConfigStatus = (el, message, isError) => {
-        el.textContent = message;
-        el.style.color = isError ? 'red' : 'green';
-        setTimeout(() => { el.textContent = ''; }, 3000);
-    };
-
     saveFeishuBtn.addEventListener('click', async () => {
         const url = feishuLinkInput.value.trim();
-        if(!url) { setConfigStatus(feishuStatus, '链接不能为空', true); return; }
+        if(!url) { setStatusMessage(feishuStatus, '链接不能为空', true); return; }
         const result = await DataStore.saveAdminConfig('feishu', url, password);
-        setConfigStatus(feishuStatus, result.message, !result.success);
+        setStatusMessage(feishuStatus, result.message, !result.success);
     });
 
     saveShortcutBtn.addEventListener('click', async () => {
         const url = shortcutLinkInput.value.trim();
-        if(!url) { setConfigStatus(shortcutStatus, '链接不能为空', true); return; }
+        if(!url) { setStatusMessage(shortcutStatus, '链接不能为空', true); return; }
         const result = await DataStore.saveAdminConfig('shortcut', url, password);
-        setConfigStatus(shortcutStatus, result.message, !result.success);
+        setStatusMessage(shortcutStatus, result.message, !result.success);
     });
 
     // --- 6. 初始化 ---

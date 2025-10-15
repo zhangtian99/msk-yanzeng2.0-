@@ -1,11 +1,7 @@
 import { kv } from '@vercel/kv';
 
-// 身份验证函数
-function checkAuth(password) {
-    return password === process.env.ADMIN_PASSWORD;
-}
+function checkAuth(password) { return password === process.env.ADMIN_PASSWORD; }
 
-// 随机密钥生成函数
 const generateRandomKey = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let randomPart = '';
@@ -20,47 +16,54 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        const { password } = request.body;
+        const { quantity = 1, key_type = 'permanent', duration_days, password, anonymous_user_id } = request.body;
         if (!checkAuth(password)) {
             return response.status(401).json({ success: false, message: '未经授权' });
         }
 
-        const quantity = 10; // 固定生成10个
         let added_count = 0;
         const generatedKeys = [];
+        let expires_at = null;
 
-        // 循环生成10个密钥
+        if (key_type === 'trial') {
+            const duration = parseInt(duration_days, 10);
+            if (isNaN(duration) || duration <= 0) {
+                return response.status(400).json({ success: false, message: '试用密钥必须提供有效的持续天数' });
+            }
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + duration);
+            expires_at = expiryDate.toISOString();
+        }
+
         for (let i = 0; i < quantity; i++) {
             let newKey, keyExists = true, attempts = 0;
-            // 为防止极小概率的重复，尝试最多5次
             while(keyExists && attempts < 5) {
                 newKey = generateRandomKey();
                 keyExists = await kv.exists(`key:${newKey}`);
                 attempts++;
             }
-            
-            // 如果5次后仍然重复，则跳过
-            if (keyExists) {
-                continue;
-            }
+            if (keyExists) continue;
             
             generatedKeys.push(newKey);
             const newKeyData = {
                 key_value: newKey,
                 validation_status: 'unused',
                 created_at: new Date().toISOString(),
-                web_validated_time: null,
-                shortcut_configured_time: null
+                key_type: key_type,
+                expires_at: expires_at,
+                activated_at: null
             };
-            // 存入数据库
             await kv.hset(`key:${newKey}`, newKeyData);
             added_count++;
         }
+        
+        // 如果是试用密钥激活，记录用户ID
+        if (key_type === 'trial' && anonymous_user_id) {
+            await kv.sadd('trial_users', anonymous_user_id);
+        }
 
         return response.status(201).json({ success: true, added_count, generatedKeys });
-
     } catch (error) {
-        console.error('API Error in /api/keys/batch:', error);
         return response.status(500).json({ success: false, message: '服务器内部错误' });
     }
 }

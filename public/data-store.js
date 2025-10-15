@@ -24,11 +24,6 @@ const DataStore = {
     async getAllKeys(password) {
         return this._handleApiResponse(await fetch(`/api/keys?password=${encodeURIComponent(password)}`), "获取密钥列表失败");
     },
-    async generateAndSaveKeys(quantity, password) {
-        return this._handleApiResponse(await fetch("/api/keys/batch", {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ quantity, password })
-        }), "批量生成密钥失败");
-    },
     async resetKey(keyValue, password) {
         return this._handleApiResponse(await fetch("/api/admin/reset-key", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key_value: keyValue, password })
@@ -54,22 +49,24 @@ const DataStore = {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key_values: keyValues, password })
         }), "批量删除密钥失败");
     },
+    async generateAndSaveKeys(quantity, keyType, durationDays, password) {
+        const payload = {
+            quantity,
+            key_type: keyType,
+            duration_days: durationDays,
+            password
+        };
+        return this._handleApiResponse(await fetch("/api/keys/batch", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        }), "生成密钥失败");
+    },
 
     // --- 用户前端需要的方法 ---
     async getConfig() {
-        // 这个方法调用的是公开API，不需要密码
         const response = await fetch("/api/config"); 
         const data = await this._handleApiResponse(response, "获取配置信息失败");
         if (data.success) return data.data;
         throw new Error(data.message || "获取配置信息失败");
-    },
-    async getFeishuTemplateLink() {
-        const config = await this.getConfig();
-        return config.FEISHU_TEMPLATE_LINK;
-    },
-    async getShortcutLink() {
-        const config = await this.getConfig();
-        return config.SHORTCUT_ICLOUD_LINK;
     }
 };
 window.DataStore = DataStore;
