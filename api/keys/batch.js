@@ -2,13 +2,18 @@ import { kv } from '@vercel/kv';
 
 function checkAuth(password) { return password === process.env.ADMIN_PASSWORD; }
 
-const generateRandomKey = () => {
+const generateRandomKey = (keyType) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let randomPart = '';
     for (let i = 0; i < 6; i++) {
         randomPart += chars.charAt(Math.floor(Math.random() * chars.length));
     }
-    return 'MSK' + randomPart;
+    let key = 'MSK' + randomPart;
+    // 【核心改动】：试用密钥最后带有sy字母
+    if (keyType === 'trial') {
+        key += 'sy';
+    }
+    return key;
 };
 
 export default async function handler(request, response) {
@@ -16,7 +21,8 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        const { quantity = 1, key_type = 'permanent', duration_days, password, anonymous_user_id } = request.body;
+        const { quantity = 1, key_type = 'permanent', duration_days, password } = request.body;
+        
         if (!checkAuth(password)) {
             return response.status(401).json({ success: false, message: '未经授权' });
         }
@@ -38,7 +44,7 @@ export default async function handler(request, response) {
         for (let i = 0; i < quantity; i++) {
             let newKey, keyExists = true, attempts = 0;
             while(keyExists && attempts < 5) {
-                newKey = generateRandomKey();
+                newKey = generateRandomKey(key_type);
                 keyExists = await kv.exists(`key:${newKey}`);
                 attempts++;
             }
@@ -51,19 +57,21 @@ export default async function handler(request, response) {
                 created_at: new Date().toISOString(),
                 key_type: key_type,
                 expires_at: expires_at,
-                activated_at: null
+                activated_at: null,
             };
             await kv.hset(`key:${newKey}`, newKeyData);
             added_count++;
         }
         
-        // 如果是试用密钥激活，记录用户ID
-        if (key_type === 'trial' && anonymous_user_id) {
-            await kv.sadd('trial_users', anonymous_user_id);
-        }
+        return response.status(201).json({
+            success: true,
+            message: `成功生成并添加了 ${added_count} 个密钥`,
+            generated_keys: generatedKeys,
+            added_count: added_count
+        });
 
-        return response.status(201).json({ success: true, added_count, generatedKeys });
     } catch (error) {
+        console.error('批量生成密钥API出错:', error);
         return response.status(500).json({ success: false, message: '服务器内部错误' });
     }
 }

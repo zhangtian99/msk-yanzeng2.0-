@@ -5,10 +5,9 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        // --- 核心修正点：现在 anonymous_user_id 是可选的 ---
-        const { key, anonymous_user_id } = request.body;
+        // 移除 anonymous_user_id
+        const { key } = request.body;
         
-        // 密钥是必需的
         if (!key) {
              return response.status(400).json({ success: false, message: '密钥格式无效' });
         }
@@ -17,47 +16,56 @@ export default async function handler(request, response) {
         if (!keyData) {
             return response.status(404).json({ success: false, message: '密钥无效或不存在' });
         }
-        
-        // 如果是试用密钥，并且请求中包含了匿名ID，则执行严格的“一人一试用”检查
-        if (keyData.key_type === 'trial' && anonymous_user_id) {
-            const userHasTrialed = await kv.sismember('trial_users', anonymous_user_id);
-            if (userHasTrialed) {
-                return response.status(403).json({ success: false, message: '您已使用过试用密钥，无法再次激活。请输入永久密钥。' });
-            }
-        }
 
-        // 检查所有密钥的通用规则（是否过期/是否已使用）
+        const isPermanent = keyData.key_type === 'permanent';
+
+        // 检查所有密钥的通用规则
+
+        // 1. 试用密钥到期后失效
         if (keyData.key_type === 'trial' && keyData.expires_at && new Date() > new Date(keyData.expires_at)) {
-            return response.status(403).json({ success: false, message: '密钥已过期' });
-        }
-        if (keyData.validation_status === 'used') {
-            return response.status(409).json({ success: false, message: '此密钥已被使用' });
+            return response.status(403).json({ success: false, message: '试用密钥已过期，请购买永久密钥。' });
         }
 
-        // 更新密钥状态
+        // 2. 检查密钥是否已被使用 (one-key-one-activation)
+        if (keyData.validation_status === 'used') {
+            // 【核心逻辑】：永久密钥已激活，直接返回成功，前端拿到链接后无需再次调用
+            if (isPermanent) {
+                const config = await kv.hgetall('system_config');
+                return response.status(200).json({ 
+                    success: true, 
+                    message: '永久密钥已激活且有效。', 
+                    data: { shortcut_link: config?.SHORTCUT_ICLOUD_LINK || '' } 
+                });
+            }
+            // 试用密钥已被使用，阻止二次激活（实现“一人一试”的简易替代）
+            return response.status(409).json({ success: false, message: '此密钥已被使用。' });
+        }
+
+        // 激活流程 (Key is valid and 'unused')
         const validationTime = new Date().toISOString();
-        await kv.hset(`key:${key}`, {
+        const updateData = {
             ...keyData,
             validation_status: 'used',
             web_validated_time: validationTime,
             activated_at: validationTime
-        });
-
-        // 如果激活的是试用密钥且匿名ID存在，则记录
-        if (keyData.key_type === 'trial' && anonymous_user_id) {
-            await kv.sadd('trial_users', anonymous_user_id);
-        }
+        };
         
+        // 移除所有 anonymous_user_id 逻辑
+
+        await kv.hset(`key:${key}`, updateData);
+
+        // 返回配置链接
+        const config = await kv.hgetall('system_config');
         return response.status(200).json({ 
             success: true, 
-            message: '密钥激活成功',
-            key_value: keyData.key_value,
-            key_type: keyData.key_type,
-            expires_at: keyData.expires_at 
+            message: `${isPermanent ? '永久' : '试用'}密钥首次激活成功。`,
+            data: {
+                shortcut_link: config?.SHORTCUT_ICLOUD_LINK || '',
+            }
         });
 
     } catch (error) {
-        console.error("激活API出错:", error);
+        console.error('密钥验证API出错:', error);
         return response.status(500).json({ success: false, message: '服务器内部错误' });
     }
 }
