@@ -2,7 +2,7 @@ import { kv } from '@vercel/kv';
 
 function checkAuth(password) { return password === process.env.ADMIN_PASSWORD; }
 
-// 【核心修改】：generateRandomKey 函数现在接收 keyType 参数
+// 生成随机密钥的函数
 const generateRandomKey = (keyType) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let randomPart = '';
@@ -12,7 +12,7 @@ const generateRandomKey = (keyType) => {
     }
     let key = 'MSK' + randomPart;
     
-    // 只有试用密钥才添加 'sy' 后缀
+    // 试用密钥添加 'sy' 后缀
     if (keyType === 'trial') {
         key += 'sy';
     }
@@ -24,7 +24,7 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        // 【修改】：移除 anonymous_user_id 字段
+        // 【修正点 A】：确保只获取需要的字段，移除了 anonymous_user_id
         const { quantity = 1, key_type = 'permanent', duration_days, password } = request.body;
         
         if (!checkAuth(password)) {
@@ -35,6 +35,7 @@ export default async function handler(request, response) {
         const generatedKeys = [];
         let expires_at = null;
 
+        // 处理试用密钥的过期时间计算
         if (key_type === 'trial') {
             const duration = parseInt(duration_days, 10);
             if (isNaN(duration) || duration <= 0) {
@@ -45,6 +46,7 @@ export default async function handler(request, response) {
             expires_at = expiryDate.toISOString();
         }
 
+        // 批量生成密钥的主循环
         for (let i = 0; i < quantity; i++) {
             let newKey, keyExists = true, attempts = 0;
             while(keyExists && attempts < 5) {
@@ -68,8 +70,9 @@ export default async function handler(request, response) {
             added_count++;
         }
         
-        // 【移除】：删除原有的 'trial_users' 集合操作
-
+        // 【修正点 B】：彻底移除原代码中关于 anonymous_user_id 或 trial_users 的逻辑
+        
+        // 成功返回
         return response.status(201).json({
             success: true,
             message: `成功生成并添加了 ${added_count} 个密钥`,
@@ -78,6 +81,7 @@ export default async function handler(request, response) {
         });
 
     } catch (error) {
+        // 捕获所有其他意外错误
         console.error('批量生成密钥API出错:', error);
         return response.status(500).json({ success: false, message: '服务器内部错误' });
     }
