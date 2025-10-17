@@ -2,7 +2,7 @@ import { kv } from '@vercel/kv';
 
 function checkAuth(password) { return password === process.env.ADMIN_PASSWORD; }
 
-// 【核心修改点 A】：函数现在接收 keyType 参数
+// 【核心修改】：generateRandomKey 函数现在接收 keyType 参数
 const generateRandomKey = (keyType) => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let randomPart = '';
@@ -12,7 +12,7 @@ const generateRandomKey = (keyType) => {
     }
     let key = 'MSK' + randomPart;
     
-    // 【核心修改点 B】：试用密钥添加 'sy' 后缀
+    // 只有试用密钥才添加 'sy' 后缀
     if (keyType === 'trial') {
         key += 'sy';
     }
@@ -24,7 +24,7 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        // 【移除修改点 C】：移除 anonymous_user_id
+        // 【修改】：移除 anonymous_user_id 字段
         const { quantity = 1, key_type = 'permanent', duration_days, password } = request.body;
         
         if (!checkAuth(password)) {
@@ -48,7 +48,7 @@ export default async function handler(request, response) {
         for (let i = 0; i < quantity; i++) {
             let newKey, keyExists = true, attempts = 0;
             while(keyExists && attempts < 5) {
-                // 【核心修改点 D】：调用时传入 key_type 参数
+                // 调用时传入 key_type 参数
                 newKey = generateRandomKey(key_type); 
                 keyExists = await kv.exists(`key:${newKey}`);
                 attempts++;
@@ -68,7 +68,7 @@ export default async function handler(request, response) {
             added_count++;
         }
         
-        // 【移除修改点 E】：移除试用密钥的用户ID记录逻辑
+        // 【移除】：删除原有的 'trial_users' 集合操作
 
         return response.status(201).json({
             success: true,
