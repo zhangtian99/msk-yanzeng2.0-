@@ -24,7 +24,7 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        // 【修正点 A】：确保只获取需要的字段，移除了 anonymous_user_id
+        // 【核心修复】：只解构需要的字段，确保不引用 anonymous_user_id
         const { quantity = 1, key_type = 'permanent', duration_days, password } = request.body;
         
         if (!checkAuth(password)) {
@@ -39,6 +39,7 @@ export default async function handler(request, response) {
         if (key_type === 'trial') {
             const duration = parseInt(duration_days, 10);
             if (isNaN(duration) || duration <= 0) {
+                // 这个错误会导致 400 Bad Request
                 return response.status(400).json({ success: false, message: '试用密钥必须提供有效的持续天数' });
             }
             const expiryDate = new Date();
@@ -50,7 +51,6 @@ export default async function handler(request, response) {
         for (let i = 0; i < quantity; i++) {
             let newKey, keyExists = true, attempts = 0;
             while(keyExists && attempts < 5) {
-                // 调用时传入 key_type 参数
                 newKey = generateRandomKey(key_type); 
                 keyExists = await kv.exists(`key:${newKey}`);
                 attempts++;
@@ -70,8 +70,6 @@ export default async function handler(request, response) {
             added_count++;
         }
         
-        // 【修正点 B】：彻底移除原代码中关于 anonymous_user_id 或 trial_users 的逻辑
-        
         // 成功返回
         return response.status(201).json({
             success: true,
@@ -81,7 +79,7 @@ export default async function handler(request, response) {
         });
 
     } catch (error) {
-        // 捕获所有其他意外错误
+        // 捕获所有其他意外错误，并确保返回 500
         console.error('批量生成密钥API出错:', error);
         return response.status(500).json({ success: false, message: '服务器内部错误' });
     }
