@@ -41,16 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveShortcutBtn = document.getElementById('saveShortcutBtn');
     const shortcutStatus = document.getElementById('shortcutStatus');
     const keyTypeRadios = document.querySelectorAll('input[name="keyType"]');
+    
+    // 【修改点 1】：获取调试和时长容器
     const trialDurationWrapper = document.getElementById('trialDurationWrapper');
     const trialDurationInput = document.getElementById('trialDurationInput');
-    const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
-    const selectedCountSpan = document.getElementById('selectedCount');
-    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    
-    // 【新增调试元素】
+    const debugDurationWrapper = document.getElementById('debugDurationWrapper');
     const debugQuantityInput = document.getElementById('debugQuantityInput'); 
     const debugDurationInput = document.getElementById('debugDurationInput'); 
     const generateDebugBtn = document.getElementById('generateDebugBtn');
+    
+    const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
+    const selectedCountSpan = document.getElementById('selectedCount');
+    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
 
     // --- 4. 核心功能函数 ---
     const showPage = (pageId) => {
@@ -275,13 +277,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 绑定原有事件 (调用修改后的 handleGeneration)
     generateSingleBtn.addEventListener('click', () => {
         const keyType = document.querySelector('input[name="keyType"]:checked').value;
-        const durationDays = keyType === 'trial' ? parseInt(trialDurationInput.value, 10) : null;
+        let durationDays = null;
+        if (keyType === 'trial') {
+             // 从天数输入框获取值
+             durationDays = parseInt(trialDurationInput.value, 10);
+        }
         handleGeneration(1, keyType, durationDays);
     });
     
     generateBatchBtn.addEventListener('click', () => {
         const keyType = document.querySelector('input[name="keyType"]:checked').value;
-        const durationDays = keyType === 'trial' ? parseInt(trialDurationInput.value, 10) : null;
+        let durationDays = null;
+        if (keyType === 'trial') {
+             durationDays = parseInt(trialDurationInput.value, 10);
+        }
         handleGeneration(parseInt(batchQuantityInput.value, 10) || 10, keyType, durationDays);
     });
     
@@ -295,11 +304,31 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 【修改点 2】：根据 KeyType 切换时长输入框和调试功能的显示
+    const updateVisibility = (keyType) => {
+        const isTrial = keyType === 'trial';
+        
+        // 试用密钥时长（天）输入框
+        if (trialDurationWrapper) {
+            trialDurationWrapper.classList.toggle('hidden', !isTrial);
+        }
+        
+        // 调试功能（分钟）
+        if (debugDurationWrapper) {
+            debugDurationWrapper.classList.toggle('hidden', !isTrial);
+        }
+    };
+    
     keyTypeRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
-            trialDurationWrapper.classList.toggle('hidden', event.target.value !== 'trial');
+            updateVisibility(event.target.value);
         });
     });
+    
+    // 初始化时隐藏调试功能和时长，如果默认选中“永久密钥”
+    const initialKeyType = document.querySelector('input[name="keyType"]:checked').value;
+    updateVisibility(initialKeyType);
+
 
     copyKeysBtn.addEventListener('click', () => {
         if (!generatedKeysDisplay.value) return;

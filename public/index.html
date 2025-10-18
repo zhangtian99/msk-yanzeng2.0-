@@ -92,10 +92,11 @@
                 validateBtn.textContent = '验证中...';
 
                 try {
+                    // 【核心修正】：不传入 user_id，使用简单模式
                     const response = await fetch('/api/validate-key-web', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: userKey })
+                        body: JSON.stringify({ key: userKey }) 
                     });
                     const result = await response.json();
                     if (response.ok && result.success) {
@@ -117,32 +118,32 @@
                 keyInput.value = '';
                 showPage(page1);
             });
-
-            getFeishuBtn.addEventListener('click', async () => {
+            
+            // 辅助函数，用于获取公开配置链接
+            const getConfigAndOpen = async (linkType) => {
                 try {
-                    const link = await DataStore.getFeishuTemplateLink();
+                    // 调用 /api/config 获取公开配置
+                    const result = await DataStore.getConfig();
+                    let link = null;
+                    if (linkType === 'feishu') {
+                        link = result.data.FEISHU_TEMPLATE_LINK;
+                    } else if (linkType === 'shortcut') {
+                        link = result.data.SHORTCUT_ICLOUD_LINK;
+                    }
+
                     if (link) {
                         window.open(link, '_blank');
                     } else {
-                        alert('管理员尚未配置飞书链接。');
+                        alert(`管理员尚未配置${linkType === 'feishu' ? '飞书' : '快捷指令'}链接。`);
                     }
                 } catch(error) {
-                    alert(`获取飞书链接失败: ${error.message}`);
+                    alert(`获取链接失败: ${error.message}`);
                 }
-            });
+            };
 
-            getShortcutBtn.addEventListener('click', async () => {
-                try {
-                    const link = await DataStore.getShortcutLink();
-                    if (link) {
-                        window.open(link, '_blank');
-                    } else {
-                        alert('管理员尚未配置快捷指令链接。');
-                    }
-                } catch(error) {
-                    alert(`获取快捷指令链接失败: ${error.message}`);
-                }
-            });
+
+            getFeishuBtn.addEventListener('click', () => getConfigAndOpen('feishu'));
+            getShortcutBtn.addEventListener('click', () => getConfigAndOpen('shortcut'));
         });
     </script>
 </body>
