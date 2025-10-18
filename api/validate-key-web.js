@@ -5,10 +5,11 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        const { key } = request.body;
+        // 必须从客户端（快捷指令）获取 key 和 user_id
+        const { key, user_id } = request.body; 
         
-        if (!key) {
-             return response.status(400).json({ success: false, message: '密钥格式无效' });
+        if (!key || !user_id) {
+             return response.status(400).json({ success: false, message: '密钥或用户ID缺失' });
         }
         
         const keyData = await kv.hgetall(`key:${key}`);
@@ -23,8 +24,8 @@ export default async function handler(request, response) {
             // 返回 403 明确告知客户端已过期
             return response.status(403).json({ success: false, message: '试用密钥已过期，请购买永久密钥。' });
         }
-        
-        // 获取配置链接 (用于成功响应)
+
+        // 获取配置链接
         const config = await kv.hgetall('system_config');
         const shortcut_link = config?.SHORTCUT_ICLOUD_LINK || '';
 
@@ -33,33 +34,69 @@ export default async function handler(request, response) {
             shortcut_link: shortcut_link,
             key_type: keyData.key_type || 'permanent',
             expires_at: keyData.expires_at || null,
-            // 添加状态，方便快捷指令判断是否需要保存到本地
             validation_status: keyData.validation_status
         };
 
         // 2. 检查密钥是否已被使用 (one-key-one-activation)
         if (keyData.validation_status === 'used') {
-            // 【修正逻辑】：永久密钥或未过期的试用密钥，直接返回成功 (幂等查询)
-            return response.status(200).json({ 
-                success: true, 
-                message: `${isPermanent ? '永久' : '试用'}密钥已激活且有效。`, 
-                data: successData 
-            });
+            // 2a. 永久密钥：直接返回成功
+            if (isPermanent) {
+                return response.status(200).json({ 
+                    success: true, 
+                    message: '永久密钥已激活且有效。', 
+                    data: successData 
+                });
+            }
+            
+            // 2b. 已激活的试用密钥：必须是本用户才能继续使用
+            if (keyData.user_id === user_id) {
+                return response.status(200).json({ 
+                    success: true, 
+                    message: '试用密钥已激活且有效。', 
+                    data: successData 
+                });
+            } else {
+                // 如果密钥已激活，但不是当前用户的ID，阻止使用。
+                return response.status(409).json({ success: false, message: '此密钥已被其他用户激活。' });
+            }
+        }
+
+        // 3. 激活流程 (Key is valid and 'unused')
+        
+        if (!isPermanent) {
+            // 【一人一试核心检查】：检查此 user_id 是否已经激活过任何试用密钥
+            const trialUsed = await kv.exists(`user:trial_used:${user_id}`);
+            if (trialUsed) {
+                // ！！！ 关键的拦截 ！！！
+                return response.status(409).json({ success: false, message: '您已使用过试用密钥，请购买永久密钥。' });
+            }
         }
         
-        // 3. 激活流程 (Key is valid and 'unused') - 首次激活
+        // 3a. 记录激活信息
         const validationTime = new Date().toISOString();
         const updateData = {
             ...keyData,
             validation_status: 'used',
             web_validated_time: validationTime,
-            activated_at: validationTime
+            activated_at: validationTime,
+            user_id: user_id // 记录用户 ID
         };
         
-        await kv.hset(`key:${key}`, updateData);
+        // 3b. 写入数据库
+        const pipeline = kv.pipeline();
+        pipeline.hset(`key:${key}`, updateData);
+
+        if (!isPermanent) {
+            // 【一人一试核心记录】：记录该用户 ID 已使用过试用密钥（永久标记）
+            // 设置一个很长的过期时间，例如一年 (31536000秒)
+            pipeline.set(`user:trial_used:${user_id}`, 'true', { ex: 31536000 }); 
+        }
+        
+        await pipeline.exec();
 
         // 返回成功激活的响应
-        successData.validation_status = 'used'; // 状态已更新
+        successData.validation_status = 'used'; 
+        successData.expires_at = updateData.expires_at; // 返回最新的过期时间
         return response.status(200).json({ 
             success: true, 
             message: `${isPermanent ? '永久' : '试用'}密钥首次激活成功。`,

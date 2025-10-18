@@ -38,7 +38,7 @@ const DataStore = {
         }), "批量删除密钥失败");
     },
 
-    // 【核心修正】：生成密钥的Payload构建，新增 durationMinutes
+    // 生成密钥的Payload构建 (已支持 durationMinutes)
     async generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password) {
         const payload = {
             quantity,
@@ -57,6 +57,7 @@ const DataStore = {
             }
         }
 
+        // API 路径位于 api/keys/batch.js
         return this._handleApiResponse(await fetch("/api/keys/batch", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
         }), "生成密钥失败");
@@ -75,14 +76,23 @@ const DataStore = {
     },
 
     // --- 用户前端需要的方法 ---
-    async validateKey(key) {
-        // 【核心修正】：移除 anonymous_user_id 字段
-        return this._handleApiResponse(await fetch("/api/keys/validate-key-web", {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key })
+    
+    /**
+     * 验证密钥有效性并激活（如果未使用）。
+     * @param {string} key - 密钥值。
+     * @param {string} userId - 用户的唯一标识符（例如快捷指令生成的ID）。
+     */
+    async validateKey(key, userId) {
+        // API 路径已更正为 /api/validate-key-web
+        return this._handleApiResponse(await fetch("/api/validate-key-web", {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ key, user_id: userId }) // 传递 key 和 user_id
         }), "密钥验证失败");
     },
+    
+    // 此方法已弃用，但保留以保持完整性
     async checkTrialStatus(key) {
-        // 保持不变，但现在应该统一使用 validateKey 接口
         return this._handleApiResponse(await fetch("/api/keys/check-trial-status", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key })
         }), "试用密钥检查失败");
