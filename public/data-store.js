@@ -38,16 +38,23 @@ const DataStore = {
         }), "批量删除密钥失败");
     },
 
-    // 【核心修正】：生成密钥的Payload构建
-    async generateAndSaveKeys(quantity, keyType, durationDays, password) {
+    // 【核心修正】：生成密钥的Payload构建，新增 durationMinutes
+    async generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password) {
         const payload = {
             quantity,
             key_type: keyType,
             password
         };
-        // 只有当 keyType 是 trial 时才添加 duration_days 字段，以避免 400 Bad Request
+        // 只有当 keyType 是 trial 时才添加时间字段
         if (keyType === 'trial') {
-            payload.duration_days = durationDays;
+            // 优先使用分钟 (用于调试)
+            if (durationMinutes) {
+                payload.duration_minutes = durationMinutes;
+            } 
+            // 否则使用天数 (正常流程)
+            else if (durationDays) {
+                payload.duration_days = durationDays;
+            }
         }
 
         return this._handleApiResponse(await fetch("/api/keys/batch", {
@@ -75,6 +82,7 @@ const DataStore = {
         }), "密钥验证失败");
     },
     async checkTrialStatus(key) {
+        // 保持不变，但现在应该统一使用 validateKey 接口
         return this._handleApiResponse(await fetch("/api/keys/check-trial-status", {
             method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key })
         }), "试用密钥检查失败");

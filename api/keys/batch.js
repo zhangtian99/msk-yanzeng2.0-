@@ -24,8 +24,8 @@ export default async function handler(request, response) {
         return response.status(405).json({ success: false, message: '仅允许POST请求' });
     }
     try {
-        // 【核心修复】：只解构需要的字段，确保不引用 anonymous_user_id
-        const { quantity = 1, key_type = 'permanent', duration_days, password } = request.body;
+        // 【核心修改】：新增 duration_minutes 字段
+        const { quantity = 1, key_type = 'permanent', duration_days, duration_minutes, password } = request.body;
         
         if (!checkAuth(password)) {
             return response.status(401).json({ success: false, message: '未经授权' });
@@ -37,14 +37,24 @@ export default async function handler(request, response) {
 
         // 处理试用密钥的过期时间计算
         if (key_type === 'trial') {
-            const duration = parseInt(duration_days, 10);
-            if (isNaN(duration) || duration <= 0) {
-                // 这个错误会导致 400 Bad Request
-                return response.status(400).json({ success: false, message: '试用密钥必须提供有效的持续天数' });
-            }
             const expiryDate = new Date();
-            expiryDate.setDate(expiryDate.getDate() + duration);
-            expires_at = expiryDate.toISOString();
+            
+            const minutes = parseInt(duration_minutes, 10);
+            const days = parseInt(duration_days, 10);
+
+            // 优先使用分钟 (用于调试)
+            if (!isNaN(minutes) && minutes > 0) {
+                expiryDate.setMinutes(expiryDate.getMinutes() + minutes);
+                expires_at = expiryDate.toISOString();
+            } 
+            // 否则使用天数 (正常流程)
+            else if (!isNaN(days) && days > 0) {
+                expiryDate.setDate(expiryDate.getDate() + days);
+                expires_at = expiryDate.toISOString();
+            } else {
+                // 如果分钟和天数都没有提供，则返回 400
+                return response.status(400).json({ success: false, message: '试用密钥必须提供有效的持续天数或分钟数' });
+            }
         }
 
         // 批量生成密钥的主循环

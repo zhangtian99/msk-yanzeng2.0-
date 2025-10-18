@@ -46,6 +46,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
     const selectedCountSpan = document.getElementById('selectedCount');
     const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+    
+    // 【新增调试元素】
+    const debugQuantityInput = document.getElementById('debugQuantityInput'); 
+    const debugDurationInput = document.getElementById('debugDurationInput'); 
+    const generateDebugBtn = document.getElementById('generateDebugBtn');
 
     // --- 4. 核心功能函数 ---
     const showPage = (pageId) => {
@@ -112,10 +117,13 @@ document.addEventListener('DOMContentLoaded', () => {
         headerContent += '</tr>';
         keysTableHead.innerHTML = headerContent;
         // Re-bind event listener to the new checkbox
-        document.getElementById('selectAllCheckbox').addEventListener('click', () => {
-             keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = document.getElementById('selectAllCheckbox').checked);
-             updateBulkActionsToolbar();
-        });
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        if (selectAllCheckbox) {
+             selectAllCheckbox.addEventListener('click', () => {
+                 keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
+                 updateBulkActionsToolbar();
+            });
+        }
     };
     
     const renderCurrentPage = () => {
@@ -228,20 +236,27 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => { el.textContent = ''; }, duration);
     };
 
-    const handleGeneration = async (quantity) => {
+    // 【修改 handleGeneration 函数，使其支持分钟参数】
+    const handleGeneration = async (quantity, keyType, durationDays, durationMinutes = null) => {
+        // 禁用所有生成按钮
         generateSingleBtn.disabled = true;
         generateBatchBtn.disabled = true;
-        const keyType = document.querySelector('input[name="keyType"]:checked').value;
-        const durationDays = keyType === 'trial' ? parseInt(trialDurationInput.value, 10) : null;
-        if (keyType === 'trial' && (!durationDays || durationDays <= 0)) {
-            setStatusMessage(generatorStatus, '请输入有效的试用天数。', true);
+        if (generateDebugBtn) generateDebugBtn.disabled = true;
+        
+        // 检查参数有效性
+        if (keyType === 'trial' && !durationDays && !durationMinutes) {
+            setStatusMessage(generatorStatus, '请输入有效的持续天数或分钟数。', true);
+            // 重新启用按钮
             generateSingleBtn.disabled = false;
             generateBatchBtn.disabled = false;
+            if (generateDebugBtn) generateDebugBtn.disabled = false;
             return;
         }
-        setStatusMessage(generatorStatus, `正在生成并保存 ${quantity} 个密钥...`);
+
+        setStatusMessage(generatorStatus, `正在生成并保存 ${quantity} 个 ${durationMinutes ? durationMinutes + '分钟' : durationDays + '天'} 的密钥...`);
         try {
-            const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, password);
+            // 【核心修改】：调用 DataStore 时传入 durationMinutes
+            const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password);
             if (result.success) {
                 generatedKeysDisplay.value = result.generatedKeys.join('\n');
                 setStatusMessage(generatorStatus, `成功保存 ${result.added_count} 个新密钥！`);
@@ -250,12 +265,36 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             setStatusMessage(generatorStatus, `操作失败: ${error.message}`, true);
         }
+        
+        // 启用所有生成按钮
         generateSingleBtn.disabled = false;
         generateBatchBtn.disabled = false;
+        if (generateDebugBtn) generateDebugBtn.disabled = false;
     };
-    generateSingleBtn.addEventListener('click', () => handleGeneration(1));
-    generateBatchBtn.addEventListener('click', () => handleGeneration(parseInt(batchQuantityInput.value, 10) || 10));
     
+    // 绑定原有事件 (调用修改后的 handleGeneration)
+    generateSingleBtn.addEventListener('click', () => {
+        const keyType = document.querySelector('input[name="keyType"]:checked').value;
+        const durationDays = keyType === 'trial' ? parseInt(trialDurationInput.value, 10) : null;
+        handleGeneration(1, keyType, durationDays);
+    });
+    
+    generateBatchBtn.addEventListener('click', () => {
+        const keyType = document.querySelector('input[name="keyType"]:checked').value;
+        const durationDays = keyType === 'trial' ? parseInt(trialDurationInput.value, 10) : null;
+        handleGeneration(parseInt(batchQuantityInput.value, 10) || 10, keyType, durationDays);
+    });
+    
+    // 【新增调试按钮事件】
+    if (generateDebugBtn) {
+        generateDebugBtn.addEventListener('click', () => {
+            const quantity = parseInt(debugQuantityInput.value, 10) || 1;
+            const durationMinutes = parseInt(debugDurationInput.value, 10) || 5;
+            // 调试密钥强制使用 'trial' 类型
+            handleGeneration(quantity, 'trial', null, durationMinutes);
+        });
+    }
+
     keyTypeRadios.forEach(radio => {
         radio.addEventListener('change', (event) => {
             trialDurationWrapper.classList.toggle('hidden', event.target.value !== 'trial');
