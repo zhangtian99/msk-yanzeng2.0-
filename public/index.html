@@ -6,11 +6,25 @@
     <title>密钥验证</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        body { font-family: -apple-system, BlinkMacMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
         .page { display: none; }
         .page.active { display: block; animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* 模态窗口背景 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
     </style>
+    <script src="/data-store.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
 
@@ -23,90 +37,142 @@
              <div class="space-y-4 text-left">
                 <div>
                     <label for="keyId" class="block text-sm font-medium text-gray-700">密钥</label>
-                    <input type="text" id="keyId" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm" placeholder="请输入密钥">
-                    <p id="keyError" class="text-red-500 text-xs mt-1 h-4"></p>
+                    <input type="text" id="keyId" placeholder="在此粘贴您的密钥" class="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-xl shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-base" required>
                 </div>
-                <button id="validateBtn" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600 disabled:bg-gray-400">
+                <button id="validateBtn" class="w-full bg-blue-500 text-white font-semibold py-3 px-4 rounded-xl hover:bg-blue-600 transition duration-150 ease-in-out">
                     验证密钥
                 </button>
+                
+                <button id="contactCustomerServiceBtn1" class="w-full bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-xl hover:bg-gray-300 transition duration-150 ease-in-out">
+                    联系客服
+                </button>
+
+                <p id="validationStatus" class="text-sm text-red-500 h-5 text-center mt-2"></p>
             </div>
         </div>
 
         <div id="page2" class="page bg-white p-8 rounded-2xl shadow-lg text-center">
-            <div class="mb-6">
-                <div class="inline-flex items-center justify-center bg-green-100 rounded-full p-3 mb-4">
-                    <svg class="w-10 h-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h1 class="text-2xl font-bold text-gray-800">验证成功</h1>
-                <p class="text-gray-500 text-sm mt-1">请继续完成后续步骤</p>
-            </div>
-            <div class="space-y-4">
-                <button id="getFeishu" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600">创建飞书后台</button>
-                <button id="getShortcut" class="w-full bg-gray-800 text-white font-semibold py-2 px-4 rounded-lg hover:bg-black">获取苹果快捷指令</button>
+            <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">密钥验证成功!</h2>
+            <p id="successMessage" class="text-gray-600 mb-4"></p>
+            
+            <div class="space-y-3">
+                <button id="getFeishuBtn" class="w-full bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl hover:bg-indigo-600 transition duration-150 ease-in-out">
+                    获取飞书模板 (Feishu)
+                </button>
+                <button id="getShortcutBtn" class="w-full bg-orange-500 text-white font-semibold py-3 px-4 rounded-xl hover:bg-orange-600 transition duration-150 ease-in-out">
+                    获取快捷指令 (Shortcut)
+                </button>
+                <button id="backBtn" class="w-full bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl hover:bg-gray-400 transition duration-150 ease-in-out">
+                    返回
+                </button>
             </div>
         </div>
         
         <div id="page3" class="page bg-white p-8 rounded-2xl shadow-lg text-center">
-             <div class="mb-6">
-                <div class="inline-flex items-center justify-center bg-red-100 rounded-full p-3 mb-4">
-                    <svg class="w-10 h-10 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h1 class="text-2xl font-bold text-gray-800">验证失败</h1>
-                <p id="failureMessage" class="text-gray-500 text-sm mt-1">密钥无效或已被使用</p>
+             <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <h2 class="text-xl font-bold text-gray-800 mb-2">验证失败</h2>
+            <p id="failureMessage" class="text-gray-600 mb-4"></p>
+            
+            <div class="space-y-3">
+                <button id="backToInputBtn" class="w-full bg-gray-300 text-gray-800 font-semibold py-3 px-4 rounded-xl hover:bg-gray-400 transition duration-150 ease-in-out">
+                    重新输入
+                </button>
+                <button id="contactCustomerServiceBtn2" class="w-full bg-gray-200 text-gray-700 font-semibold py-3 px-4 rounded-xl hover:bg-gray-300 transition duration-150 ease-in-out">
+                    联系客服
+                </button>
             </div>
-            <div class="space-y-4">
-                <button id="backBtn" class="w-full bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600">返回重试</button>
-            </div>
+        </div>
+
+    </div>
+    
+    <div id="customerServiceModal" class="modal-overlay">
+        <div class="bg-white p-6 rounded-2xl shadow-xl max-w-xs w-full text-center">
+            <h3 class="text-xl font-bold mb-4 text-gray-800">联系客服</h3>
+            <img src="/image_e48c24.png" alt="微信客服二维码" class="mx-auto w-48 h-48 mb-4">
+            <p class="text-sm text-gray-600 mb-4">请使用微信扫描上方二维码</p>
+            <button id="closeModalBtn" class="w-full bg-red-500 text-white font-semibold py-2 px-4 rounded-xl hover:bg-red-600 transition duration-150 ease-in-out">
+                关闭
+            </button>
         </div>
     </div>
 
-    <script src="/data-store.js"></script> 
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM 元素获取 ---
             const page1 = document.getElementById('page1');
             const page2 = document.getElementById('page2');
             const page3 = document.getElementById('page3');
-            
             const keyInput = document.getElementById('keyId');
-            const keyError = document.getElementById('keyError');
             const validateBtn = document.getElementById('validateBtn');
+            const validationStatus = document.getElementById('validationStatus');
+            const successMessage = document.getElementById('successMessage');
             const failureMessage = document.getElementById('failureMessage');
             const backBtn = document.getElementById('backBtn');
+            const backToInputBtn = document.getElementById('backToInputBtn');
+            const getFeishuBtn = document.getElementById('getFeishuBtn');
+            const getShortcutBtn = document.getElementById('getShortcutBtn');
 
-            const getFeishuBtn = document.getElementById('getFeishu');
-            const getShortcutBtn = document.getElementById('getShortcut');
+            // --- 客服相关 DOM ---
+            const customerServiceModal = document.getElementById('customerServiceModal');
+            const contactCustomerServiceBtn1 = document.getElementById('contactCustomerServiceBtn1');
+            const contactCustomerServiceBtn2 = document.getElementById('contactCustomerServiceBtn2');
+            const closeModalBtn = document.getElementById('closeModalBtn');
 
-            const showPage = (pageToShow) => {
-                [page1, page2, page3].forEach(p => p.classList.remove('active'));
-                pageToShow.classList.add('active');
+            let currentPage = page1;
+
+            // --- 页面切换函数 ---
+            const showPage = (targetPage) => {
+                if (currentPage) {
+                    currentPage.classList.remove('active');
+                    currentPage.style.display = 'none';
+                }
+                targetPage.classList.add('active');
+                targetPage.style.display = 'block';
+                currentPage = targetPage;
             };
 
+            // --- 客服模态窗口控制函数 ---
+            const showCustomerServiceModal = () => {
+                customerServiceModal.style.display = 'flex';
+            };
+
+            const hideCustomerServiceModal = () => {
+                customerServiceModal.style.display = 'none';
+            };
+
+
+            // --- 事件监听器 ---
             validateBtn.addEventListener('click', async () => {
-                const userKey = keyInput.value.trim();
-                if (!userKey) {
-                    keyError.textContent = '密钥不能为空';
+                const key = keyInput.value.trim();
+                if (!key) {
+                    validationStatus.textContent = '请输入密钥';
                     return;
                 }
-                keyError.textContent = '';
+                
+                validationStatus.textContent = '';
                 validateBtn.disabled = true;
                 validateBtn.textContent = '验证中...';
 
                 try {
-                    // 【核心修正】：不传入 user_id，使用简单模式
-                    const response = await fetch('/api/validate-key-web', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ key: userKey }) 
-                    });
-                    const result = await response.json();
-                    if (response.ok && result.success) {
+                    const result = await DataStore.validateKey(key);
+
+                    if (result.success) {
+                        successMessage.innerHTML = result.message + '<br>' + 
+                            `类型：<span class="font-semibold">${result.data.key_type === 'permanent' ? '永久密钥' : '试用密钥'}</span>`;
                         showPage(page2);
                     } else {
-                        failureMessage.textContent = result.message || '验证失败，请重试';
+                        // 验证失败
+                        failureMessage.textContent = result.message || '密钥验证失败。';
                         showPage(page3);
                     }
-                } catch (err) {
-                    failureMessage.textContent = '网络错误，请稍后重试';
+
+                } catch (error) {
+                    // API/网络错误
+                    failureMessage.textContent = error.message.includes('409') 
+                        ? '此密钥已被使用，如需再次验证，请联系管理员重置。' 
+                        : '网络错误，请稍后重试';
                     showPage(page3);
                 } finally {
                     validateBtn.disabled = false;
@@ -114,11 +180,31 @@
                 }
             });
 
+            // 页面 2 返回
             backBtn.addEventListener('click', () => {
                 keyInput.value = '';
                 showPage(page1);
             });
+
+            // 页面 3 返回
+            backToInputBtn.addEventListener('click', () => {
+                keyInput.value = '';
+                showPage(page1);
+            });
             
+            // 绑定客服按钮事件
+            contactCustomerServiceBtn1.addEventListener('click', showCustomerServiceModal);
+            contactCustomerServiceBtn2.addEventListener('click', showCustomerServiceModal);
+            closeModalBtn.addEventListener('click', hideCustomerServiceModal);
+            
+            // 点击模态窗口外部区域关闭
+            customerServiceModal.addEventListener('click', (e) => {
+                if (e.target === customerServiceModal) {
+                    hideCustomerServiceModal();
+                }
+            });
+
+
             // 辅助函数，用于获取公开配置链接
             const getConfigAndOpen = async (linkType) => {
                 try {
