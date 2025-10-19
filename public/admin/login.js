@@ -1,4 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('admin-token')) {
+        window.location.href = '/admin/';
+        return;
+    }
     const passwordInput = document.getElementById('adminPassword');
     const loginBtn = document.getElementById('loginBtn');
     const loginStatus = document.getElementById('loginStatus');
