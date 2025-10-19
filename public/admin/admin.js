@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = getElement('searchInput');
     const filterSelect = getElement('filterSelect');
     const tabLinks = getAllElements('.tab-link'); 
-    const searchBtn = getElement('searchBtn'); // 【新增获取搜索按钮】
+    const searchBtn = getElement('searchBtn');
 
     // 批量操作
     const bulkActionsToolbar = getElement('bulkActionsToolbar');
@@ -173,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const keysForCurrentPage = filteredKeys.slice(startIndex, endIndex);
 
         if (filteredKeys.length === 0) {
-            // 【关键修正点】: 如果存在搜索词，给出更精确的反馈 (优化点 B)
+            // 【关键修正点】: 如果存在搜索词，给出更精确的反馈
             if (currentSearchTerm.trim() !== '' && keysTableStatus) {
                 keysTableStatus.textContent = `未找到密钥 "${currentSearchTerm}"。`;
             } else {
@@ -402,8 +402,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // 初始化时确保正确的显示状态
-    const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
-    updateVisibility(initialKeyType);
+    const initialKeyTypeFromDOM = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
+    updateVisibility(initialKeyTypeFromDOM);
 
 
     if (copyKeysBtn) {
@@ -439,7 +439,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (searchInput) {
-        // 移除原有的 input 实时搜索功能
         // 监听 Enter 键，使其也能触发搜索
         searchInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
@@ -579,7 +578,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 初始化时确保正确的显示状态 (防止切换到非 trial 页面时隐藏输入框)
-    const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
-    updateVisibility(initialKeyType);
+    if (initialKeyTypeFromDOM === 'permanent') {
+        if (trialDurationWrapper) trialDurationWrapper.style.display = 'none';
+        if (debugDurationWrapper) debugDurationWrapper.style.display = 'none';
+    }
+
     showPage('home');
 });
