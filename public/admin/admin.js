@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keysTableBody = getElement('keys-table-body');
     const keysTableStatus = getElement('keys-table-status'); 
 
-    // 分页、搜索、筛选 - 【关键修正：获取所有分页按钮】
+    // 分页、搜索、筛选
     const prevPageBtns = getAllElements('#prevPageBtn, #mobilePrevPageBtn'); 
     const nextPageBtns = getAllElements('#nextPageBtn, #mobileNextPageBtn'); 
     
@@ -102,6 +102,13 @@ document.addEventListener('DOMContentLoaded', () => {
             link.classList.remove('active');
             if (link.dataset.page === effectivePageId) link.classList.add('active');
         });
+        
+        // 【优化点】：确保 DataStore 存在，防止在 showPage 内部触发错误
+        if (typeof DataStore === 'undefined') {
+             console.error("Cannot load page data: DataStore is not defined.");
+             return;
+        }
+        
         if (effectivePageId === 'home') loadHomePage();
         if (effectivePageId === 'view') loadViewPage();
         if (effectivePageId === 'config') loadConfigPage();
@@ -246,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
             if (result.success) {
                 allKeysCache = result.data;
-                currentPage = 1;
+                // 注意：这里不需要重置 currentPage = 1，因为搜索事件已经重置了
                 renderTableHeader();
                 renderCurrentPage();
             } else { throw new Error(result.message); }
@@ -412,17 +419,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     // 【关键修正：绑定搜索和筛选事件】
-    if (searchInput) {
-        // 确保移除旧的事件监听器以防重复绑定
-        searchInput.removeEventListener('input', searchHandler); 
-        
-        const searchHandler = () => {
-            currentSearchTerm = searchInput.value.trim();
-            currentPage = 1; // 搜索时重置页码
-            fetchAndRenderKeys();
-        };
+    const searchHandler = () => {
+        if (!searchInput) return; // 再次检查元素是否存在
 
-        // 重新绑定事件
+        currentSearchTerm = searchInput.value.trim();
+        currentPage = 1; // 搜索时重置页码
+        fetchAndRenderKeys();
+    };
+
+    if (searchInput) {
+        // 移除旧的事件监听器以防重复绑定
+        // 必须使用命名函数或保存引用才能移除监听器，但由于我们在 DOMContentLoaded 中，简单重新绑定即可
         searchInput.addEventListener('input', searchHandler);
     }
 
