@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const shortcutStatus = document.getElementById('shortcutStatus');
     const keyTypeRadios = document.querySelectorAll('input[name="keyType"]');
     
-    // 【修改点 1】：获取调试和时长容器
+    // 获取调试和时长容器
     const trialDurationWrapper = document.getElementById('trialDurationWrapper');
     const trialDurationInput = document.getElementById('trialDurationInput');
     const debugDurationWrapper = document.getElementById('debugDurationWrapper');
@@ -257,7 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         setStatusMessage(generatorStatus, `正在生成并保存 ${quantity} 个 ${durationMinutes ? durationMinutes + '分钟' : durationDays + '天'} 的密钥...`);
         try {
-            // 【核心修改】：调用 DataStore 时传入 durationMinutes
+            // 调用 DataStore 时传入 durationMinutes
             const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password);
             if (result.success) {
                 generatedKeysDisplay.value = result.generatedKeys.join('\n');
@@ -304,18 +304,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 【修改点 2】：根据 KeyType 切换时长输入框和调试功能的显示
+    // 【修正显示逻辑】：根据 KeyType 切换时长输入框和调试功能的显示
     const updateVisibility = (keyType) => {
         const isTrial = keyType === 'trial';
         
         // 试用密钥时长（天）输入框
         if (trialDurationWrapper) {
-            trialDurationWrapper.classList.toggle('hidden', !isTrial);
+            // 使用 display = block/none 覆盖 index.html 中的初始样式
+            trialDurationWrapper.style.display = isTrial ? 'block' : 'none';
         }
         
         // 调试功能（分钟）
         if (debugDurationWrapper) {
-            debugDurationWrapper.classList.toggle('hidden', !isTrial);
+            debugDurationWrapper.style.display = isTrial ? 'block' : 'none';
         }
     };
     
@@ -325,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
     
-    // 初始化时隐藏调试功能和时长，如果默认选中“永久密钥”
+    // 初始化时确保正确的显示状态
     const initialKeyType = document.querySelector('input[name="keyType"]:checked').value;
     updateVisibility(initialKeyType);
 

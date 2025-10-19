@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>密钥管理后台</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="admin.js"></script>
-    <script src="../data-store.js"></script>  ```
     <style>
         .page { display: none; }
         .page.active { display: block; }
@@ -84,7 +82,7 @@
                     <input type="number" id="trialDurationInput" value="7" min="1" class="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 
-                <div id="debugDurationWrapper" class="space-y-2 mt-4 p-4 border border-red-300 rounded-lg bg-red-50">
+                <div id="debugDurationWrapper" class="space-y-2 mt-4 p-4 border border-red-300 rounded-lg bg-red-50 hidden">
                     <h3 class="text-md font-semibold text-red-700">调试功能 (分钟)</h3>
                     <div class="flex items-center space-x-2">
                         <label for="debugQuantityInput" class="text-sm">数量:</label>
@@ -152,7 +150,7 @@
             <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-xl shadow-lg">
                 <div class="flex-1 flex justify-between sm:hidden">
                     <button id="prevPageBtn" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">上一页</button>
-                    <button id="nextPageBtn" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">下一页</button>
+                    <button id="nextPageBtn" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">下一页</button>
                 </div>
                 <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
@@ -195,7 +193,7 @@
 
     </main>
     
-    <script src="/data-store.js"></script>
+    <script src="../data-store.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>

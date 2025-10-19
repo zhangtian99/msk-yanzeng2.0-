@@ -19,7 +19,8 @@
             <p id="loginStatus" class="text-sm text-red-500 h-5 text-center"></p>
         </div>
     </div>
-    <script src="/data-store.js"></script>
+    <!-- 修复了 const DataStore 重复声明的问题，并使用了正确的跳级相对路径 -->
+    <script src="../data-store.js"></script>
     <script src="login.js"></script>
 </body>
 </html>

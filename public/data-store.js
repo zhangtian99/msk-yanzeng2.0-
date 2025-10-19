@@ -80,14 +80,19 @@ const DataStore = {
     /**
      * 验证密钥有效性并激活（如果未使用）。
      * @param {string} key - 密钥值。
-     * @param {string} userId - 用户的唯一标识符（例如快捷指令生成的ID）。
+     * @param {string} [userId] - 用户的唯一标识符（可选，仅供快捷指令使用）。
      */
     async validateKey(key, userId) {
         // API 路径已更正为 /api/validate-key-web
+        const payload = { key };
+        if (userId) {
+            payload.user_id = userId;
+        }
+
         return this._handleApiResponse(await fetch("/api/validate-key-web", {
             method: "POST", 
             headers: { "Content-Type": "application/json" }, 
-            body: JSON.stringify({ key, user_id: userId }) // 传递 key 和 user_id
+            body: JSON.stringify(payload)
         }), "密钥验证失败");
     },
     
