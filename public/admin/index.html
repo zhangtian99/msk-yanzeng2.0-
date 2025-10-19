@@ -84,13 +84,15 @@
                     </div>
                 </div>
 
-                <!-- 试用密钥时长 (天) - 默认隐藏 -->
+                <!-- 试用密钥时长 (固定 3 天) -->
                 <div id="trialDurationWrapper" class="space-y-2">
-                    <label for="trialDurationInput" class="block text-lg font-medium text-gray-700">试用时长 (天)</label>
-                    <input type="number" id="trialDurationInput" value="7" min="1" class="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md">
+                    <h3 class="text-lg font-medium text-gray-700 flex items-center">
+                        <span class="mr-2">试用时长</span>
+                        <span class="px-3 py-1 text-sm font-semibold rounded-full bg-yellow-100 text-yellow-800">固定 3 天</span>
+                    </h3>
                 </div>
                 
-                <!-- 调试功能 (分钟) - 默认隐藏 -->
+                <!-- 调试功能 (分钟) - 以标签形式出现 -->
                 <div id="debugDurationWrapper" class="space-y-2 mt-4 p-4 border border-red-300 rounded-lg bg-red-50">
                     <h3 class="text-md font-semibold text-red-700">调试功能 (分钟)</h3>
                     <div class="flex items-center space-x-2">

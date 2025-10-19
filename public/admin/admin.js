@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 获取调试和时长容器
     const trialDurationWrapper = document.getElementById('trialDurationWrapper');
-    const trialDurationInput = document.getElementById('trialDurationInput');
+    // 移除了 trialDurationInput，因为不再读取它的值
     const debugDurationWrapper = document.getElementById('debugDurationWrapper');
     const debugQuantityInput = document.getElementById('debugQuantityInput'); 
     const debugDurationInput = document.getElementById('debugDurationInput'); 
@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 generatedKeysDisplay.value = generatedKeys.join('\n');
                 
-                // 修正：显示生成成功的消息
+                // 修正：显示生成成功的消息 (绿色字体)
                 setStatusMessage(generatorStatus, `成功保存 ${result.added_count} 个新密钥！`);
                 
                 copyKeysBtn.disabled = generatedKeys.length === 0;
@@ -317,8 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const keyType = document.querySelector('input[name="keyType"]:checked').value;
         let durationDays = null;
         if (keyType === 'trial') {
-             // 从天数输入框获取值
-             durationDays = parseInt(trialDurationInput.value, 10);
+             // 修正：试用密钥硬编码为 3 天
+             durationDays = 3;
         }
         handleGeneration(1, keyType, durationDays);
     });
@@ -327,7 +327,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const keyType = document.querySelector('input[name="keyType"]:checked').value;
         let durationDays = null;
         if (keyType === 'trial') {
-             durationDays = parseInt(trialDurationInput.value, 10);
+             // 修正：试用密钥硬编码为 3 天
+             durationDays = 3;
         }
         handleGeneration(parseInt(batchQuantityInput.value, 10) || 10, keyType, durationDays);
     });
@@ -346,9 +347,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateVisibility = (keyType) => {
         const isTrial = keyType === 'trial';
         
-        // 试用密钥时长（天）输入框
+        // 试用密钥时长（天）标签
         if (trialDurationWrapper) {
-            // 使用 display = block/none 覆盖 index.html 中的初始样式
             trialDurationWrapper.style.display = isTrial ? 'block' : 'none';
         }
         
