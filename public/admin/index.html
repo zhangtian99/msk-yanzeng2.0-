@@ -10,10 +10,13 @@
         .page.active { display: block; }
         .sidebar-link { transition: background-color 0.2s; }
         .sidebar-link.active { background-color: #3b82f6; color: white; }
+        /* 修正了上一版中可能导致调试功能默认显示的样式问题 */
+        #trialDurationWrapper, #debugDurationWrapper { display: none; } 
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen flex">
 
+    <!-- 侧边栏导航 -->
     <aside class="w-64 bg-gray-800 text-white flex flex-col">
         <div class="p-4 text-2xl font-bold border-b border-gray-700">
             密钥管理系统
@@ -39,9 +42,11 @@
         </div>
     </aside>
 
+    <!-- 主内容区域 -->
     <main class="flex-grow p-8">
         <h1 class="text-3xl font-bold text-gray-800 mb-6">管理后台</h1>
         
+        <!-- 1. 概览页面 (Home) -->
         <section id="page-home" class="page active">
             <h2 class="text-2xl font-semibold mb-4">系统统计</h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -60,9 +65,11 @@
             </div>
         </section>
 
+        <!-- 2. 密钥生成页面 (Create) -->
         <section id="page-create" class="page">
             <h2 class="text-2xl font-semibold mb-4">密钥生成</h2>
             <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                <!-- 密钥类型选择 -->
                 <div class="space-y-2">
                     <h3 class="text-lg font-medium text-gray-700">选择密钥类型</h3>
                     <div class="flex space-x-4">
@@ -77,12 +84,14 @@
                     </div>
                 </div>
 
-                <div id="trialDurationWrapper" class="space-y-2 hidden">
+                <!-- 试用密钥时长 (天) - 默认隐藏 -->
+                <div id="trialDurationWrapper" class="space-y-2">
                     <label for="trialDurationInput" class="block text-lg font-medium text-gray-700">试用时长 (天)</label>
                     <input type="number" id="trialDurationInput" value="7" min="1" class="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md">
                 </div>
                 
-                <div id="debugDurationWrapper" class="space-y-2 mt-4 p-4 border border-red-300 rounded-lg bg-red-50 hidden">
+                <!-- 调试功能 (分钟) - 默认隐藏 -->
+                <div id="debugDurationWrapper" class="space-y-2 mt-4 p-4 border border-red-300 rounded-lg bg-red-50">
                     <h3 class="text-md font-semibold text-red-700">调试功能 (分钟)</h3>
                     <div class="flex items-center space-x-2">
                         <label for="debugQuantityInput" class="text-sm">数量:</label>
@@ -95,6 +104,7 @@
                     </div>
                 </div>
 
+                <!-- 批量生成 -->
                 <div class="space-y-2 pt-4">
                     <h3 class="text-lg font-medium text-gray-700">批量生成</h3>
                     <div class="flex items-center space-x-4">
@@ -108,8 +118,10 @@
                     </div>
                 </div>
 
+                <!-- 状态显示 -->
                 <p id="generatorStatus" class="text-sm h-5"></p>
                 
+                <!-- 生成结果显示 -->
                 <div class="space-y-2">
                     <h3 class="text-lg font-medium text-gray-700">生成结果</h3>
                     <textarea id="generatedKeysDisplay" rows="5" readonly class="block w-full p-3 border border-gray-300 rounded-md bg-gray-50 font-mono text-sm" placeholder="生成的密钥将显示在这里"></textarea>
@@ -120,9 +132,11 @@
             </div>
         </section>
 
+        <!-- 3. 密钥列表页面 (View) -->
         <section id="page-view" class="page">
             <h2 class="text-2xl font-semibold mb-4">密钥列表</h2>
 
+            <!-- 选项卡导航 -->
             <div class="border-b border-gray-200 mb-4">
                 <nav class="-mb-px flex space-x-8">
                     <a href="#" class="tab-link whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600" data-tab="all">所有密钥</a>
@@ -130,6 +144,7 @@
                 </nav>
             </div>
             
+            <!-- 批量操作工具栏 -->
             <div id="bulkActionsToolbar" class="hidden flex items-center justify-between p-3 mb-4 bg-yellow-100 border border-yellow-300 rounded-lg">
                 <span class="text-sm font-medium text-yellow-800">已选择 <span id="selectedCount">0</span> 个密钥</span>
                 <button id="deleteSelectedBtn" class="bg-red-600 text-white font-semibold py-1 px-3 rounded-lg hover:bg-red-700 text-sm">
@@ -137,20 +152,24 @@
                 </button>
             </div>
 
+            <!-- 密钥表格 -->
             <div class="bg-white rounded-xl shadow-lg overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50" id="keys-table-head">
-                        </thead>
+                        <!-- 头部将由 admin.js 渲染 -->
+                    </thead>
                     <tbody class="bg-white divide-y divide-gray-200" id="keys-table-body">
-                        </tbody>
+                        <!-- 数据行将由 admin.js 渲染 -->
+                    </tbody>
                 </table>
                 <p id="keys-table-status" class="p-4 text-center text-gray-500">正在加载...</p>
             </div>
 
+            <!-- 分页控制 -->
             <div class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-xl shadow-lg">
                 <div class="flex-1 flex justify-between sm:hidden">
                     <button id="prevPageBtn" class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">上一页</button>
-                    <button id="nextPageBtn" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">下一页</button>
+                    <button id="nextPageBtn" class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">下一页</button>
                 </div>
                 <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
@@ -168,9 +187,11 @@
             </div>
         </section>
 
+        <!-- 4. 系统配置页面 (Config) -->
         <section id="page-config" class="page">
             <h2 class="text-2xl font-semibold mb-4">系统配置</h2>
             <div class="bg-white p-6 rounded-xl shadow-lg space-y-6">
+                <!-- 飞书配置 -->
                 <div class="space-y-2">
                     <label for="feishuLinkInput" class="block text-lg font-medium text-gray-700">飞书模板链接 (FEISHU_TEMPLATE_LINK)</label>
                     <input type="url" id="feishuLinkInput" placeholder="https://..." class="block w-full max-w-lg px-3 py-2 border border-gray-300 rounded-md">
@@ -180,6 +201,7 @@
                     </div>
                 </div>
 
+                <!-- 快捷指令配置 -->
                 <div class="space-y-2">
                     <label for="shortcutLinkInput" class="block text-lg font-medium text-gray-700">苹果快捷指令链接 (SHORTCUT_ICLOUD_LINK)</label>
                     <input type="url" id="shortcutLinkInput" placeholder="https://www.icloud.com/shortcuts/..." class="block w-full max-w-lg px-3 py-2 border border-gray-300 rounded-md">
@@ -193,7 +215,9 @@
 
     </main>
     
-    <script src="../data-store.js"></script>
-    <script src="admin.js"></script>
+    <!-- 修正路径：使用根目录绝对路径 /data-store.js -->
+    <script src="/data-store.js"></script>
+    <!-- 修正路径：使用根目录绝对路径 /admin/admin.js -->
+    <script src="/admin/admin.js"></script>
 </body>
 </html>
