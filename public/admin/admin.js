@@ -14,8 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSearchTerm = '';
     let currentFilter = 'all';
 
-    // --- 3. DOM元素获取 (所有元素现在都使用 let/const 声明并直接获取) ---
+    // --- 3. DOM元素获取 ---
     const getElement = (id) => document.getElementById(id);
+    const getAllElements = (selector) => document.querySelectorAll(selector); // 新增获取多个元素的方法
 
     const pages = { 
         home: getElement('page-home'), 
@@ -23,7 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
         view: getElement('page-view'), 
         config: getElement('page-config') 
     };
-    const sidebarLinks = document.querySelectorAll('.sidebar-link[data-page]');
+    const sidebarLinks = getAllElements('.sidebar-link[data-page]');
     const logoutBtn = getElement('logoutBtn');
 
     // 统计数据
@@ -38,7 +39,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const batchQuantityInput = getElement('batchQuantityInput');
     const copyKeysBtn = getElement('copyKeysBtn');
     const generatorStatus = getElement('generatorStatus');
-    const keyTypeRadios = document.querySelectorAll('input[name="keyType"]');
+    const keyTypeRadios = getAllElements('input[name="keyType"]');
     
     // 调试和时长容器
     const trialDurationWrapper = getElement('trialDurationWrapper');
@@ -50,17 +51,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // 密钥查看 (View Page)
     const keysTableHead = getElement('keys-table-head');
     const keysTableBody = getElement('keys-table-body');
-    const keysTableStatus = getElement('keys-table-status'); // <--- 确保此元素在 HTML 中存在
+    const keysTableStatus = getElement('keys-table-status'); 
 
-    // 分页、搜索、筛选
-    const prevPageBtn = getElement('prevPageBtn');
-    const nextPageBtn = getElement('nextPageBtn');
+    // 分页、搜索、筛选 - 【关键修正：获取所有分页按钮】
+    // 桌面端按钮 ID: prevPageBtn, nextPageBtn
+    // 移动端按钮 ID: mobilePrevPageBtn, mobileNextPageBtn
+    const prevPageBtns = getAllElements('#prevPageBtn, #mobilePrevPageBtn'); 
+    const nextPageBtns = getAllElements('#nextPageBtn, #mobileNextPageBtn'); 
+    
     const pageStartSpan = getElement('pageStartSpan');
     const pageEndSpan = getElement('pageEndSpan');
     const totalItemsSpan = getElement('totalItemsSpan');
     const searchInput = getElement('searchInput');
     const filterSelect = getElement('filterSelect');
-    const tabLinks = document.querySelectorAll('.tab-link'); // 如果存在
+    const tabLinks = getAllElements('.tab-link'); 
 
     // 批量操作
     const bulkActionsToolbar = getElement('bulkActionsToolbar');
@@ -110,7 +114,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const date = new Date(isoString);
         
         // 计算 UTC+8 的时间
-        // 8小时 * 60分钟/小时 * 60秒/分钟 * 1000毫秒/秒
         const offsetMs = 8 * 60 * 60 * 1000;
         const localDate = new Date(date.getTime() + offsetMs);
 
@@ -132,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
         `;
-        // 统一渲染所有列，减少逻辑分支
+        // 统一渲染所有列
         headerContent += baseHeaders + `
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">过期时间</th>
@@ -217,8 +220,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // 【关键修正：更新分页控件函数，处理多个按钮】
     const updatePaginationControls = (totalItems) => {
-        if (!pageStartSpan || !pageEndSpan || !totalItemsSpan || !prevPageBtn || !nextPageBtn) return; // 安全退出
+        if (!pageStartSpan || !pageEndSpan || !totalItemsSpan) return; 
 
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -227,8 +231,13 @@ document.addEventListener('DOMContentLoaded', () => {
         pageStartSpan.textContent = totalItems > 0 ? startIndex + 1 : 0;
         pageEndSpan.textContent = Math.min(endIndex, totalItems); 
         totalItemsSpan.textContent = totalItems;
-        prevPageBtn.disabled = currentPage === 1;
-        nextPageBtn.disabled = currentPage >= totalPages;
+        
+        const isFirstPage = currentPage === 1;
+        const isLastPage = currentPage >= totalPages;
+
+        // 遍历所有上一页和下一页按钮并设置禁用状态
+        prevPageBtns.forEach(btn => btn.disabled = isFirstPage);
+        nextPageBtns.forEach(btn => btn.disabled = isLastPage);
     };
     
     // 新增：封装加载列表数据的函数，带筛选/搜索参数
@@ -278,8 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (shortcutLinkInput) shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
             } else { throw new Error(result.message); }
         } catch(error) {
-            if (feishuStatus) setStatusMessage(feishuStatus, `加载失败: ${error.message}`, true); // 使用 setStatusMessage
-            if (shortcutStatus) setStatusMessage(shortcutStatus, `加载失败: ${error.message}`, true); // 确保 shortcutStatus 也被处理
+            if (feishuStatus) setStatusMessage(feishuStatus, `加载失败: ${error.message}`, true); 
+            if (shortcutStatus) setStatusMessage(shortcutStatus, `加载失败: ${error.message}`, true); 
         }
     };
 
@@ -482,28 +491,34 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // Pagination controls
-    if (prevPageBtn) {
-         prevPageBtn.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                renderCurrentPage();
-                updatePaginationControls(allKeysCache.length); // 传入总数进行更新
-            }
-        });
-    }
+    // 【关键修正：分页控制事件绑定，绑定到所有按钮】
+    const handlePaginationClick = (isNext) => {
+        const filteredKeys = allKeysCache;
+        const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
 
-    if (nextPageBtn) {
-        nextPageBtn.addEventListener('click', () => {
-            const filteredKeys = allKeysCache; // 使用当前缓存的总数
-            const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
+        if (isNext) {
             if (currentPage < totalPages) {
                 currentPage++;
-                renderCurrentPage();
-                updatePaginationControls(allKeysCache.length); // 传入总数进行更新
             }
-        });
-    }
+        } else {
+            if (currentPage > 1) {
+                currentPage--;
+            }
+        }
+        renderCurrentPage();
+        updatePaginationControls(filteredKeys.length);
+    };
+
+    // 绑定 Prev 按钮
+    prevPageBtns.forEach(btn => {
+        btn.addEventListener('click', () => handlePaginationClick(false));
+    });
+
+    // 绑定 Next 按钮
+    nextPageBtns.forEach(btn => {
+        btn.addEventListener('click', () => handlePaginationClick(true));
+    });
+
 
     // Config save buttons
     if (saveFeishuBtn) {
