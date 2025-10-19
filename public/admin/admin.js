@@ -411,13 +411,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // 绑定搜索和筛选事件
+    // 【关键修正：绑定搜索和筛选事件】
     if (searchInput) {
-        searchInput.addEventListener('input', () => {
+        // 确保移除旧的事件监听器以防重复绑定
+        searchInput.removeEventListener('input', searchHandler); 
+        
+        const searchHandler = () => {
             currentSearchTerm = searchInput.value.trim();
             currentPage = 1; // 搜索时重置页码
             fetchAndRenderKeys();
-        });
+        };
+
+        // 重新绑定事件
+        searchInput.addEventListener('input', searchHandler);
     }
 
     if (filterSelect) {
