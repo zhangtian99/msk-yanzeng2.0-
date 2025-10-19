@@ -63,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = getElement('searchInput');
     const filterSelect = getElement('filterSelect');
     const tabLinks = getAllElements('.tab-link'); 
-    const searchBtn = getElement('searchBtn');
+    const searchBtn = getElement('searchBtn'); // 【新增获取搜索按钮】
 
     // 批量操作
     const bulkActionsToolbar = getElement('bulkActionsToolbar');
@@ -173,7 +173,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const keysForCurrentPage = filteredKeys.slice(startIndex, endIndex);
 
         if (filteredKeys.length === 0) {
-            keysTableStatus.textContent = '没有找到符合条件的密钥。';
+            // 【关键修正点】: 如果存在搜索词，给出更精确的反馈 (优化点 B)
+            if (currentSearchTerm.trim() !== '' && keysTableStatus) {
+                keysTableStatus.textContent = `未找到密钥 "${currentSearchTerm}"。`;
+            } else {
+                keysTableStatus.textContent = '没有找到符合条件的密钥。';
+            }
             return;
         }
         if (keysForCurrentPage.length === 0) {
@@ -226,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // 【关键修正：更新分页控件函数，处理多个按钮】
+    // 【更新分页控件函数，处理多个按钮】
     const updatePaginationControls = (totalItems) => {
         if (!pageStartSpan || !pageEndSpan || !totalItemsSpan) return; 
 
@@ -246,16 +251,14 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtns.forEach(btn => btn.disabled = isLastPage);
     };
     
-    // 【关键修正：修改 fetchAndRenderKeys 以传递搜索和筛选参数】
+    // 【修改 fetchAndRenderKeys 以传递搜索和筛选参数】
     const fetchAndRenderKeys = async () => {
         if (keysTableStatus) keysTableStatus.textContent = '正在加载...';
         try {
-            // API 调用时传入参数 - 【修正点】: 传递 currentSearchTerm 和 currentFilter
-            // 这依赖于 DataStore.getAllKeys 被修正为接受这三个参数，并后端 keys.js 支持搜索
+            // API 调用时传入参数 - 修正后 DataStore 签名
             const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
             if (result.success) {
                 allKeysCache = result.data;
-                // 注意：这里不需要重置 currentPage = 1，因为搜索事件已经重置了
                 renderTableHeader();
                 renderCurrentPage();
             } else { throw new Error(result.message); }
@@ -420,7 +423,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // 【关键修正：搜索事件处理函数】
+    // 【搜索事件处理函数】
     const searchHandler = () => {
         if (!searchInput) return; 
 
@@ -437,8 +440,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (searchInput) {
         // 移除原有的 input 实时搜索功能
-        searchInput.removeEventListener('input', searchHandler); 
-        
         // 监听 Enter 键，使其也能触发搜索
         searchInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
@@ -578,10 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 初始化时确保正确的显示状态 (防止切换到非 trial 页面时隐藏输入框)
-    if (initialKeyType === 'permanent') {
-        if (trialDurationWrapper) trialDurationWrapper.style.display = 'none';
-        if (debugDurationWrapper) debugDurationWrapper.style.display = 'none';
-    }
-
+    const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
+    updateVisibility(initialKeyType);
     showPage('home');
 });

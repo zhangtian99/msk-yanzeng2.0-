@@ -1,5 +1,3 @@
-// /public/data-store.js
-
 const DataStore = {
     // 这是一个通用的辅助函数，用来处理所有API请求的响应
     async _handleApiResponse(response, errorMessagePrefix) {
@@ -22,44 +20,53 @@ const DataStore = {
         }), "密码验证失败");
     },
     
-    // 获取统计数据等方法...
     async getStats(password) {
         return this._handleApiResponse(await fetch(`/api/admin/stats?password=${encodeURIComponent(password)}`), "获取统计数据失败");
     },
-    async getAllKeys(password) {
-        return this._handleApiResponse(await fetch(`/api/keys?password=${encodeURIComponent(password)}`), "获取密钥列表失败");
+    
+    // 【修正点】：getAllKeys 现在接受 search 和 filter 参数
+    async getAllKeys(password, search = '', filter = 'all') {
+        const queryParams = new URLSearchParams({ 
+            password: password, 
+            search: search, 
+            filter: filter 
+        }).toString();
+        
+        return this._handleApiResponse(await fetch(`/api/keys?${queryParams}`), "获取密钥列表失败");
     },
+    
     async resetKey(keyValue, password) {
         return this._handleApiResponse(await fetch("/api/admin/reset-key", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key_value: keyValue, password: password })
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key_value: keyValue, password })
         }), "重置密钥失败");
     },
     async generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password) {
+        const payload = {
+            quantity,
+            key_type: keyType,
+            password
+        };
+        // 只有当 keyType 是 trial 时才添加时间字段
+        if (keyType === 'trial') {
+            // 优先使用分钟 (用于调试)
+            if (durationMinutes) {
+                payload.duration_minutes = durationMinutes;
+            } 
+            // 否则使用天数 (正常流程)
+            else if (durationDays) {
+                payload.duration_days = durationDays;
+            }
+        }
         return this._handleApiResponse(await fetch("/api/keys/batch", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                quantity: quantity, 
-                key_type: keyType, 
-                duration_days: durationDays, 
-                duration_minutes: durationMinutes,
-                password: password 
-            })
-        }), "批量生成密钥失败");
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
+        }), "生成密钥失败");
     },
     async batchDeleteKeys(keyValues, password) {
         return this._handleApiResponse(await fetch("/api/admin/batch-delete-keys", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ key_values: keyValues, password: password })
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key_values: keyValues, password })
         }), "批量删除密钥失败");
     },
-
-    // 【新增】：删除单个密钥的方法 (对应 admin.js 中的 delete-key-btn)
     async deleteKey(keyValue, password) {
-        // keys.js 使用 DELETE 方法，body 中传递 key_value 和 password
         return this._handleApiResponse(await fetch("/api/keys", {
             method: "DELETE", 
             headers: { "Content-Type": "application/json" }, 
@@ -67,7 +74,7 @@ const DataStore = {
         }), "删除密钥失败");
     },
 
-    // 配置相关
+    // 配置保存方法
     async saveAdminConfig(linkType, url, password) {
         return this._handleApiResponse(await fetch("/api/admin/config", {
             method: "POST",
@@ -80,25 +87,11 @@ const DataStore = {
     },
 
     // --- 用户前端需要的方法 ---
-    
-    /**
-     * 获取公开配置（不需要密码）。
-     */
-    async getConfig() {
-        return this._handleApiResponse(await fetch(`/api/config`), "获取公开配置失败");
-    },
-
-    /**
-     * 验证密钥有效性并激活（如果未使用）。
-     * @param {string} key - 密钥值。
-     * @param {string} [userId] - 用户的唯一标识符（可选，仅供快捷指令使用）。
-     */
     async validateKey(key, userId) {
         const payload = { key };
         if (userId) {
             payload.user_id = userId;
         }
-
         return this._handleApiResponse(await fetch("/api/validate-key-web", {
             method: "POST", 
             headers: { "Content-Type": "application/json" }, 
@@ -106,8 +99,14 @@ const DataStore = {
         }), "密钥验证失败");
     },
     
-    // 此方法已弃用，但保留以保持完整性
     async checkTrialStatus(key) {
-        return this._handleApiResponse(await fetch("/api/keys/check-trial-status"), "检查试用状态失败");
+        return this._handleApiResponse(await fetch("/api/keys/check-trial-status", {
+            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key })
+        }), "试用密钥检查失败");
+    },
+    
+    async getConfig() {
+        const response = await fetch("/api/config"); 
+        return this._handleApiResponse(response, "获取公开配置失败");
     },
 };

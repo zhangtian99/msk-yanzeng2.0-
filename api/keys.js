@@ -1,6 +1,5 @@
 import { kv } from '@vercel/kv';
 
-// 统一的身份验证函数
 function checkAuth(password) {
     return password === process.env.ADMIN_PASSWORD;
 }
@@ -9,6 +8,7 @@ export default async function handler(request, response) {
     
     // --- 处理 GET 请求：获取所有密钥列表（含筛选和过期清理） ---
     if (request.method === 'GET') {
+        // 【修正点】：解构 search 和 filter 参数
         const { password, search = '', filter = 'all' } = request.query;
         
         if (!checkAuth(password)) {
@@ -17,40 +17,52 @@ export default async function handler(request, response) {
         
         try {
             const keys = await kv.keys('key:*');
-            if (keys.length === 0) {
-                return response.status(200).json({ success: true, data: [] });
+            let allKeyData = [];
+            
+            // 【精确搜索优化】：如果提供了搜索词，首先尝试精确匹配，避免拉取所有数据
+            if (search && search.trim() !== '' && filter === 'all') {
+                const searchKey = `key:${search.trim()}`;
+                const keyData = await kv.hgetall(searchKey);
+                if (keyData) {
+                    allKeyData.push(keyData);
+                }
+                // 如果精确匹配失败，继续执行正常的过滤流程
+            } else if (keys.length > 0) {
+                 // 否则，批量获取所有密钥数据
+                const pipeline = kv.pipeline();
+                keys.forEach(key => pipeline.hgetall(key));
+                allKeyData = await pipeline.exec();
             }
 
-            const pipeline = kv.pipeline();
-            keys.forEach(key => pipeline.hgetall(key));
-            const allKeyData = await pipeline.exec();
-            
             const keysToDelete = [];
+            const searchValue = search.trim().toLowerCase();
             
             const processedKeys = allKeyData
-                .filter(Boolean) // 过滤掉可能为空的 KV 结果
-                .map(keyData => {
+                .filter(Boolean)
+                .filter(keyData => {
                     // 检查是否过期并标记删除 (仅限试用密钥)
                     if (keyData.key_type === 'trial' && keyData.expires_at && new Date() > new Date(keyData.expires_at)) {
                         keysToDelete.push(`key:${keyData.key_value}`);
-                        return null; // 标记为无效，稍后过滤
+                        return false; // 移除过期的
                     }
-                    return keyData;
-                })
-                .filter(Boolean); // 移除被标记为删除的密钥
+                    return true;
+                });
 
             // 批量删除已过期的密钥
             if (keysToDelete.length > 0) {
                 const deletePipeline = kv.pipeline();
                 keysToDelete.forEach(keyName => deletePipeline.del(keyName));
                 await deletePipeline.exec();
-                console.log(`自动清除了 ${keysToDelete.length} 个过期密钥`);
             }
             
             // 执行搜索和筛选
             const filteredKeys = processedKeys.filter(keyData => {
-                const searchValue = search.toLowerCase();
-                const matchesSearch = !searchValue || keyData.key_value.toLowerCase().includes(searchValue);
+                
+                let matchesSearch = true;
+                if (searchValue) {
+                    // 【修正点】：如果提供了搜索词，执行精确匹配
+                    matchesSearch = keyData.key_value.toLowerCase() === searchValue;
+                }
                 
                 let matchesFilter = true;
                 if (filter === 'used') {
@@ -112,7 +124,7 @@ export default async function handler(request, response) {
         }
     }
     
-    // --- 新增：处理 DELETE 请求，用于删除单个密钥 --- (保持不变，已在原代码中)
+    // --- 新增：处理 DELETE 请求，用于删除单个密钥 ---
     if (request.method === 'DELETE') {
         const { key_value, password } = request.body;
         if (!checkAuth(password)) {
