@@ -7,9 +7,10 @@ function checkAuth(password) {
 
 export default async function handler(request, response) {
     
-    // --- 处理 GET 请求：获取所有密钥列表 ---
+    // --- 处理 GET 请求：获取所有密钥列表（含筛选和过期清理） ---
     if (request.method === 'GET') {
-        const { password } = request.query;
+        const { password, search = '', filter = 'all' } = request.query;
+        
         if (!checkAuth(password)) {
             return response.status(401).json({ success: false, message: '未经授权' });
         }
@@ -24,10 +25,49 @@ export default async function handler(request, response) {
             keys.forEach(key => pipeline.hgetall(key));
             const allKeyData = await pipeline.exec();
             
-            // 过滤掉可能为空的数据并按创建时间降序排序
-            const sortedKeys = allKeyData
-                .filter(Boolean)
-                .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+            const keysToDelete = [];
+            
+            const processedKeys = allKeyData
+                .filter(Boolean) // 过滤掉可能为空的 KV 结果
+                .map(keyData => {
+                    // 检查是否过期并标记删除 (仅限试用密钥)
+                    if (keyData.key_type === 'trial' && keyData.expires_at && new Date() > new Date(keyData.expires_at)) {
+                        keysToDelete.push(`key:${keyData.key_value}`);
+                        return null; // 标记为无效，稍后过滤
+                    }
+                    return keyData;
+                })
+                .filter(Boolean); // 移除被标记为删除的密钥
+
+            // 批量删除已过期的密钥
+            if (keysToDelete.length > 0) {
+                const deletePipeline = kv.pipeline();
+                keysToDelete.forEach(keyName => deletePipeline.del(keyName));
+                await deletePipeline.exec();
+                console.log(`自动清除了 ${keysToDelete.length} 个过期密钥`);
+            }
+            
+            // 执行搜索和筛选
+            const filteredKeys = processedKeys.filter(keyData => {
+                const searchValue = search.toLowerCase();
+                const matchesSearch = !searchValue || keyData.key_value.toLowerCase().includes(searchValue);
+                
+                let matchesFilter = true;
+                if (filter === 'used') {
+                    matchesFilter = keyData.validation_status === 'used';
+                } else if (filter === 'unused') {
+                    matchesFilter = keyData.validation_status !== 'used';
+                } else if (filter === 'trial') {
+                    matchesFilter = keyData.key_type === 'trial';
+                } else if (filter === 'permanent') {
+                    matchesFilter = keyData.key_type === 'permanent';
+                }
+                
+                return matchesSearch && matchesFilter;
+            });
+            
+            // 按创建时间降序排序
+            const sortedKeys = filteredKeys.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
             return response.status(200).json({ success: true, data: sortedKeys });
 
@@ -37,8 +77,7 @@ export default async function handler(request, response) {
         }
     }
 
-    // --- 处理 POST 请求：添加单个密钥 ---
-    // (注意：此功能当前未在简化版UI中使用，但保留API以备将来之需)
+    // --- 处理 POST 请求：添加单个密钥 --- (保持不变)
     if (request.method === 'POST') {
         const { key_value, password } = request.body;
         if (!checkAuth(password)) {
@@ -73,7 +112,7 @@ export default async function handler(request, response) {
         }
     }
     
-    // --- 新增：处理 DELETE 请求，用于删除单个密钥 ---
+    // --- 新增：处理 DELETE 请求，用于删除单个密钥 --- (保持不变，已在原代码中)
     if (request.method === 'DELETE') {
         const { key_value, password } = request.body;
         if (!checkAuth(password)) {

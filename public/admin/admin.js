@@ -10,7 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let allKeysCache = [];
     let currentPage = 1;
     const itemsPerPage = 10;
-    let currentTabView = 'all';
+    let currentTabView = 'all'; 
+    let currentSearchTerm = ''; // 新增：搜索词
+    let currentFilter = 'all';    // 新增：筛选条件
 
     // --- 3. DOM元素获取 ---
     const pages = { home: document.getElementById('page-home'), create: document.getElementById('page-create'), view: document.getElementById('page-view'), config: document.getElementById('page-config') };
@@ -44,7 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 获取调试和时长容器
     const trialDurationWrapper = document.getElementById('trialDurationWrapper');
-    // 移除了 trialDurationInput，因为不再读取它的值
     const debugDurationWrapper = document.getElementById('debugDurationWrapper');
     const debugQuantityInput = document.getElementById('debugQuantityInput'); 
     const debugDurationInput = document.getElementById('debugDurationInput'); 
@@ -53,6 +54,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
     const selectedCountSpan = document.getElementById('selectedCount');
     const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+
+    // 【新增 DOM 元素】
+    const searchInput = document.getElementById('searchInput');
+    const filterSelect = document.getElementById('filterSelect');
+
 
     // --- 4. 核心功能函数 ---
     const showPage = (pageId) => {
@@ -131,13 +137,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const renderCurrentPage = () => {
         keysTableBody.innerHTML = '';
         keysTableStatus.textContent = '';
-        const filteredKeys = currentTabView === 'trial' ? allKeysCache.filter(key => key.key_type === 'trial') : allKeysCache;
+        
+        // --- 核心修正：现在 allKeysCache 已经是 API 筛选/搜索后的结果 ---
+        const filteredKeys = allKeysCache; // 直接使用 API 返回的已筛选/搜索数据
+        
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const keysForCurrentPage = filteredKeys.slice(startIndex, endIndex);
 
         if (filteredKeys.length === 0) {
-            keysTableStatus.textContent = currentTabView === 'trial' ? '没有找到试用密钥。' : '没有找到任何密钥。';
+            keysTableStatus.textContent = '没有找到符合条件的密钥。';
             return;
         }
         if (keysForCurrentPage.length === 0) {
@@ -176,16 +185,14 @@ document.addEventListener('DOMContentLoaded', () => {
             
             let rowContent = `<td class="p-4"><input type="checkbox" class="key-checkbox h-4 w-4" data-key-value="${key.key_value}"></td>`;
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">${key.key_value}</td>`;
-            if (currentTabView === 'all') {
+            if (currentTabView === 'all') { // 保持 this check for rendering columns
                 rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${keyType === '试用' ? 'text-yellow-600' : 'text-green-600'}">${keyType}</td>`;
             }
             rowContent += `<td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span></td>`;
             
-            // 修正：使用自定义工具函数显示 UTC+8 时间
             const createdText = formatLocalTimeAsRequired(key.created_at);
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${createdText}</td>`;
             
-            // 修正：使用自定义工具函数显示 UTC+8 时间
             const expiresText = formatLocalTimeAsRequired(key.expires_at);
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>`;
             
@@ -229,10 +236,11 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtn.disabled = currentPage >= totalPages;
     };
     
-    const loadViewPage = async () => {
+    // 新增：封装加载列表数据的函数，带筛选/搜索参数
+    const fetchAndRenderKeys = async () => {
         keysTableStatus.textContent = '正在加载...';
         try {
-            const result = await DataStore.getAllKeys(password);
+            const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); // 调用 API 时传入参数
             if (result.success) {
                 allKeysCache = result.data;
                 currentPage = 1;
@@ -244,25 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 5. 事件监听器绑定 ---
-    sidebarLinks.forEach(link => link.addEventListener('click', () => showPage(link.dataset.page)));
-    logoutBtn.addEventListener('click', () => { sessionStorage.removeItem('admin-token'); window.location.href = '/admin/login.html'; });
-
-    tabLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            currentTabView = link.dataset.tab;
-            tabLinks.forEach(tab => {
-                tab.classList.remove('border-blue-500', 'text-blue-600');
-                tab.classList.add('border-transparent', 'text-gray-500');
-            });
-            link.classList.add('border-blue-500', 'text-blue-600');
-            link.classList.remove('border-transparent', 'text-gray-500');
-            currentPage = 1;
-            renderTableHeader();
-            renderCurrentPage();
-        });
-    });
+    const loadViewPage = () => {
+        // 第一次进入时加载数据
+        fetchAndRenderKeys();
+    };
 
     const setStatusMessage = (el, message, isError = false, duration = 3000) => {
         el.textContent = message;
@@ -377,6 +370,21 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // 绑定搜索和筛选事件
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentSearchTerm = searchInput.value.trim();
+            fetchAndRenderKeys();
+        });
+    }
+
+    if (filterSelect) {
+        filterSelect.addEventListener('change', () => {
+            currentFilter = filterSelect.value;
+            fetchAndRenderKeys();
+        });
+    }
+
     keysTableBody.addEventListener('click', async (e) => {
         const target = e.target;
         if (target.classList.contains('key-checkbox')) {
@@ -389,17 +397,17 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!')); 
         }
         if (target.classList.contains('reset-btn')) {
-            // Use a modal-like alert instead of confirm
+            // 重置后重新加载列表
             if (window.confirm(`确定要重置密钥 "${keyValue}" 吗？`)) { 
                 const result = await DataStore.resetKey(keyValue, password);
-                if (result.success) loadViewPage(); else alert(`重置失败: ${result.message}`);
+                if (result.success) fetchAndRenderKeys(); else alert(`重置失败: ${result.message}`);
             }
         }
         if (target.classList.contains('delete-btn')) {
-            // Use a modal-like alert instead of confirm
+            // 删除后重新加载列表
             if (window.confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
                 const result = await DataStore.deleteKey(keyValue, password);
-                if (result.success) loadViewPage(); else alert(`删除失败: ${result.message}`);
+                if (result.success) fetchAndRenderKeys(); else alert(`删除失败: ${result.message}`);
             }
         }
     });
@@ -408,12 +416,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
         const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
         if (keysToDelete.length === 0) return;
-        // Use a modal-like alert instead of confirm
+        // 批量删除后重新加载列表
         if (window.confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
             const result = await DataStore.batchDeleteKeys(keysToDelete, password);
             if(result.success) {
                 alert(result.message);
-                loadViewPage();
+                fetchAndRenderKeys(); 
             } else {
                 alert(`删除失败: ${result.message}`);
             }
@@ -428,7 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     nextPageBtn.addEventListener('click', () => {
-        const filteredKeys = currentTabView === 'trial' ? allKeysCache.filter(key => key.key_type === 'trial') : allKeysCache;
+        const filteredKeys = allKeysCache; // 使用当前缓存的总数
         const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
         if (currentPage < totalPages) {
             currentPage++;
