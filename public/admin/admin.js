@@ -11,11 +11,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPage = 1;
     const itemsPerPage = 10;
     let currentTabView = 'all'; 
-    let currentSearchTerm = ''; // 新增：搜索词
-    let currentFilter = 'all';    // 新增：筛选条件
+    let currentSearchTerm = '';
+    let currentFilter = 'all';
 
     // --- 3. DOM元素获取 ---
-    const pages = { home: document.getElementById('page-home'), create: document.getElementById('page-create'), view: document.getElementById('page-view'), config: document.getElementById('page-config') };
+    // 确保 DOM 元素获取即使失败 (返回 null) 也不会中断脚本
+    const pages = { 
+        home: document.getElementById('page-home'), 
+        create: document.getElementById('page-create'), 
+        view: document.getElementById('page-view'), 
+        config: document.getElementById('page-config') 
+    };
     const sidebarLinks = document.querySelectorAll('.sidebar-link[data-page]');
     const logoutBtn = document.getElementById('logoutBtn');
     const statsTotalKeys = document.getElementById('stats-total-keys');
@@ -63,8 +69,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 4. 核心功能函数 ---
     const showPage = (pageId) => {
         const effectivePageId = pages[pageId] ? pageId : 'home';
-        Object.values(pages).forEach(page => page.classList.remove('active'));
-        pages[effectivePageId].classList.add('active');
+        // 确保页面 DOM 元素存在时才操作
+        Object.values(pages).forEach(page => page && page.classList.remove('active'));
+        if (pages[effectivePageId]) pages[effectivePageId].classList.add('active');
+        
         sidebarLinks.forEach(link => {
             link.classList.remove('active');
             if (link.dataset.page === effectivePageId) link.classList.add('active');
@@ -75,31 +83,31 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const loadHomePage = async () => {
-        [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el.textContent = '...');
+        [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el && (el.textContent = '...'));
         try {
             const result = await DataStore.getStats(password);
             if (result.success) {
-                statsTotalKeys.textContent = result.data.totalKeys;
-                statsUsedKeys.textContent = result.data.usedKeys;
-                statsUnusedKeys.textContent = result.data.totalKeys - result.data.usedKeys;
+                if (statsTotalKeys) statsTotalKeys.textContent = result.data.totalKeys;
+                if (statsUsedKeys) statsUsedKeys.textContent = result.data.usedKeys;
+                if (statsUnusedKeys) statsUnusedKeys.textContent = result.data.totalKeys - result.data.usedKeys;
             } else { throw new Error(result.message); }
         } catch(error) {
-            [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el.textContent = 'N/A');
+            [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el && (el.textContent = 'N/A'));
         }
     };
 
     const loadConfigPage = async () => {
-        feishuLinkInput.value = '加载中...';
-        shortcutLinkInput.value = '加载中...';
+        if (feishuLinkInput) feishuLinkInput.value = '加载中...';
+        if (shortcutLinkInput) shortcutLinkInput.value = '加载中...';
         try {
             const result = await DataStore.getAdminConfig(password);
             if (result.success) {
-                feishuLinkInput.value = result.data.FEISHU_TEMPLATE_LINK || '';
-                shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
+                if (feishuLinkInput) feishuLinkInput.value = result.data.FEISHU_TEMPLATE_LINK || '';
+                if (shortcutLinkInput) shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
             } else { throw new Error(result.message); }
         } catch(error) {
-            feishuStatus.textContent = `加载失败: ${error.message}`;
-            feishuStatus.style.color = 'red';
+            if (feishuStatus) feishuStatus.textContent = `加载失败: ${error.message}`;
+            if (feishuStatus) feishuStatus.style.color = 'red';
         }
     };
 
@@ -122,19 +130,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
             `;
         }
-        headerContent += '</tr>';
-        keysTableHead.innerHTML = headerContent;
-        // Re-bind event listener to the new checkbox
-        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-        if (selectAllCheckbox) {
-             selectAllCheckbox.addEventListener('click', () => {
-                 keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
-                 updateBulkActionsToolbar();
-            });
+        if (keysTableHead) {
+            keysTableHead.innerHTML = headerContent;
+            // Re-bind event listener to the new checkbox
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            if (selectAllCheckbox) {
+                 selectAllCheckbox.addEventListener('click', () => {
+                     keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
+                     updateBulkActionsToolbar();
+                });
+            }
         }
     };
     
     const renderCurrentPage = () => {
+        if (!keysTableBody || !keysTableStatus) return; // 安全退出
         keysTableBody.innerHTML = '';
         keysTableStatus.textContent = '';
         
@@ -212,8 +222,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const updateBulkActionsToolbar = () => {
         const selectedCheckboxes = keysTableBody.querySelectorAll('.key-checkbox:checked');
         const count = selectedCheckboxes.length;
-        bulkActionsToolbar.classList.toggle('hidden', count === 0);
-        selectedCountSpan.textContent = count;
+        if (bulkActionsToolbar) {
+             bulkActionsToolbar.classList.toggle('hidden', count === 0);
+             if (selectedCountSpan) selectedCountSpan.textContent = count;
+        }
+       
         const allVisibleCheckboxes = keysTableBody.querySelectorAll('.key-checkbox');
         const selectAll = document.getElementById('selectAllCheckbox');
         if(selectAll) {
@@ -222,12 +235,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updatePaginationControls = (totalItems) => {
+        if (!pageStartSpan || !pageEndSpan || !totalItemsSpan || !prevPageBtn || !nextPageBtn) return; // 安全退出
+
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
-        const pageStartSpan = document.getElementById('pageStartSpan');
-        const pageEndSpan = document.getElementById('pageEndSpan');
-        const totalItemsSpan = document.getElementById('totalItemsSpan');
 
         pageStartSpan.textContent = totalItems > 0 ? startIndex + 1 : 0;
         pageEndSpan.textContent = endIndex;
@@ -238,9 +250,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 新增：封装加载列表数据的函数，带筛选/搜索参数
     const fetchAndRenderKeys = async () => {
-        keysTableStatus.textContent = '正在加载...';
+        if (keysTableStatus) keysTableStatus.textContent = '正在加载...';
         try {
-            const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); // 调用 API 时传入参数
+            // API 调用时传入参数
+            const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
             if (result.success) {
                 allKeysCache = result.data;
                 currentPage = 1;
@@ -248,7 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderCurrentPage();
             } else { throw new Error(result.message); }
         } catch(error) {
-             keysTableStatus.textContent = `加载失败: ${error.message}`;
+             if (keysTableStatus) keysTableStatus.textContent = `加载失败: ${error.message}`;
         }
     };
 
@@ -258,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const setStatusMessage = (el, message, isError = false, duration = 3000) => {
+        if (!el) return;
         el.textContent = message;
         el.style.color = isError ? 'red' : 'green';
         setTimeout(() => { el.textContent = ''; }, duration);
@@ -266,16 +280,16 @@ document.addEventListener('DOMContentLoaded', () => {
     // 【修改 handleGeneration 函数，使其支持分钟参数】
     const handleGeneration = async (quantity, keyType, durationDays, durationMinutes = null) => {
         // 禁用所有生成按钮
-        generateSingleBtn.disabled = true;
-        generateBatchBtn.disabled = true;
+        if (generateSingleBtn) generateSingleBtn.disabled = true;
+        if (generateBatchBtn) generateBatchBtn.disabled = true;
         if (generateDebugBtn) generateDebugBtn.disabled = true;
         
         // 检查参数有效性
         if (keyType === 'trial' && !durationDays && !durationMinutes) {
             setStatusMessage(generatorStatus, '请输入有效的持续天数或分钟数。', true);
             // 重新启用按钮
-            generateSingleBtn.disabled = false;
-            generateBatchBtn.disabled = false;
+            if (generateSingleBtn) generateSingleBtn.disabled = false;
+            if (generateBatchBtn) generateBatchBtn.disabled = false;
             if (generateDebugBtn) generateDebugBtn.disabled = false;
             return;
         }
@@ -288,43 +302,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 // 【核心修正】：安全地获取 generated_keys，并使用 added_count 显示成功信息
                 const generatedKeys = Array.isArray(result.generated_keys) ? result.generated_keys : [];
                 
-                generatedKeysDisplay.value = generatedKeys.join('\n');
+                if (generatedKeysDisplay) generatedKeysDisplay.value = generatedKeys.join('\n');
                 
                 // 修正：显示生成成功的消息 (绿色字体)
                 setStatusMessage(generatorStatus, `成功保存 ${result.added_count} 个新密钥！`);
                 
-                copyKeysBtn.disabled = generatedKeys.length === 0;
+                if (copyKeysBtn) copyKeysBtn.disabled = generatedKeys.length === 0;
             } else { throw new Error(result.message); }
         } catch (error) {
             setStatusMessage(generatorStatus, `操作失败: ${error.message}`, true);
         }
         
         // 启用所有生成按钮
-        generateSingleBtn.disabled = false;
-        generateBatchBtn.disabled = false;
+        if (generateSingleBtn) generateSingleBtn.disabled = false;
+        if (generateBatchBtn) generateBatchBtn.disabled = false;
         if (generateDebugBtn) generateDebugBtn.disabled = false;
     };
     
     // 绑定原有事件 (调用修改后的 handleGeneration)
-    generateSingleBtn.addEventListener('click', () => {
-        const keyType = document.querySelector('input[name="keyType"]:checked').value;
-        let durationDays = null;
-        if (keyType === 'trial') {
-             // 修正：试用密钥硬编码为 3 天
-             durationDays = 3;
-        }
-        handleGeneration(1, keyType, durationDays);
-    });
+    if (generateSingleBtn) {
+        generateSingleBtn.addEventListener('click', () => {
+            const keyType = document.querySelector('input[name="keyType"]:checked').value;
+            let durationDays = null;
+            if (keyType === 'trial') {
+                 // 修正：试用密钥硬编码为 3 天
+                 durationDays = 3;
+            }
+            handleGeneration(1, keyType, durationDays);
+        });
+    }
     
-    generateBatchBtn.addEventListener('click', () => {
-        const keyType = document.querySelector('input[name="keyType"]:checked').value;
-        let durationDays = null;
-        if (keyType === 'trial') {
-             // 修正：试用密钥硬编码为 3 天
-             durationDays = 3;
-        }
-        handleGeneration(parseInt(batchQuantityInput.value, 10) || 10, keyType, durationDays);
-    });
+    if (generateBatchBtn) {
+        generateBatchBtn.addEventListener('click', () => {
+            const keyType = document.querySelector('input[name="keyType"]:checked').value;
+            let durationDays = null;
+            if (keyType === 'trial') {
+                 // 修正：试用密钥硬编码为 3 天
+                 durationDays = 3;
+            }
+            handleGeneration(parseInt(batchQuantityInput.value, 10) || 10, keyType, durationDays);
+        });
+    }
     
     // 【新增调试按钮事件】
     if (generateDebugBtn) {
@@ -358,17 +376,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // 初始化时确保正确的显示状态
-    const initialKeyType = document.querySelector('input[name="keyType"]:checked').value;
+    const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
     updateVisibility(initialKeyType);
 
-
-    copyKeysBtn.addEventListener('click', () => {
-        if (!generatedKeysDisplay.value) return;
-        document.execCommand('copy').then(() => { // Using document.execCommand('copy') for better compatibility in iframe
-            copyKeysBtn.textContent = '已复制!';
-            setTimeout(() => { copyKeysBtn.textContent = '一键复制'; }, 2000);
+    if (copyKeysBtn) {
+        copyKeysBtn.addEventListener('click', () => {
+            if (!generatedKeysDisplay || !generatedKeysDisplay.value) return;
+            // 使用 execCommand('copy') for better compatibility
+            try {
+                navigator.clipboard.writeText(generatedKeysDisplay.value).then(() => {
+                    copyKeysBtn.textContent = '已复制!';
+                    setTimeout(() => { copyKeysBtn.textContent = '一键复制'; }, 2000);
+                });
+            } catch (err) {
+                 console.error('Copy failed:', err);
+            }
         });
-    });
+    }
+
 
     // 绑定搜索和筛选事件
     if (searchInput) {
@@ -384,6 +409,20 @@ document.addEventListener('DOMContentLoaded', () => {
             fetchAndRenderKeys();
         });
     }
+
+    // 【核心修复】：菜单按钮点击事件绑定
+    if (sidebarLinks.length > 0) {
+        sidebarLinks.forEach(link => link.addEventListener('click', () => showPage(link.dataset.page)));
+    }
+    
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => { 
+            sessionStorage.removeItem('admin-token'); 
+            window.location.href = '/admin/login.html'; 
+        });
+    }
+    // End of 菜单按钮点击事件绑定
+    
 
     keysTableBody.addEventListener('click', async (e) => {
         const target = e.target;
@@ -406,58 +445,73 @@ document.addEventListener('DOMContentLoaded', () => {
         if (target.classList.contains('delete-btn')) {
             // 删除后重新加载列表
             if (window.confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
+                // 使用 DELETE /api/keys 删除单个密钥
                 const result = await DataStore.deleteKey(keyValue, password);
                 if (result.success) fetchAndRenderKeys(); else alert(`删除失败: ${result.message}`);
             }
         }
     });
 
-    deleteSelectedBtn.addEventListener('click', async () => {
-        const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
-        const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
-        if (keysToDelete.length === 0) return;
-        // 批量删除后重新加载列表
-        if (window.confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
-            const result = await DataStore.batchDeleteKeys(keysToDelete, password);
-            if(result.success) {
-                alert(result.message);
-                fetchAndRenderKeys(); 
-            } else {
-                alert(`删除失败: ${result.message}`);
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', async () => {
+            const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
+            const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
+            if (keysToDelete.length === 0) return;
+            // 批量删除后重新加载列表
+            if (window.confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
+                const result = await DataStore.batchDeleteKeys(keysToDelete, password);
+                if(result.success) {
+                    alert(result.message);
+                    fetchAndRenderKeys(); 
+                } else {
+                    alert(`删除失败: ${result.message}`);
+                }
             }
-        }
-    });
-
-    prevPageBtn.addEventListener('click', () => {
-        if (currentPage > 1) {
-            currentPage--;
-            renderCurrentPage();
-            updatePaginationControls();
-        }
-    });
-    nextPageBtn.addEventListener('click', () => {
-        const filteredKeys = allKeysCache; // 使用当前缓存的总数
-        const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
-        if (currentPage < totalPages) {
-            currentPage++;
-            renderCurrentPage();
-            updatePaginationControls();
-        }
-    });
+        });
+    }
     
-    saveFeishuBtn.addEventListener('click', async () => {
-        const url = feishuLinkInput.value.trim();
-        if(!url) { setStatusMessage(feishuStatus, '链接不能为空', true); return; }
-        const result = await DataStore.saveAdminConfig('feishu', url, password);
-        setStatusMessage(feishuStatus, result.message, !result.success);
-    });
+    // Pagination controls
+    if (prevPageBtn) {
+         prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderCurrentPage();
+                updatePaginationControls();
+            }
+        });
+    }
 
-    saveShortcutBtn.addEventListener('click', async () => {
-        const url = shortcutLinkInput.value.trim();
-        if(!url) { setStatusMessage(shortcutStatus, '链接不能为空', true); return; }
-        const result = await DataStore.saveAdminConfig('shortcut', url, password);
-        setStatusMessage(shortcutStatus, result.message, !result.success);
-    });
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            const filteredKeys = allKeysCache; // 使用当前缓存的总数
+            const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderCurrentPage();
+                updatePaginationControls();
+            }
+        });
+    }
+
+    // Config save buttons
+    if (saveFeishuBtn) {
+        saveFeishuBtn.addEventListener('click', async () => {
+            const url = feishuLinkInput.value.trim();
+            if(!url) { setStatusMessage(feishuStatus, '链接不能为空', true); return; }
+            const result = await DataStore.saveAdminConfig('feishu', url, password);
+            setStatusMessage(feishuStatus, result.message, !result.success);
+        });
+    }
+    
+    if (saveShortcutBtn) {
+        saveShortcutBtn.addEventListener('click', async () => {
+            const url = shortcutLinkInput.value.trim();
+            if(!url) { setStatusMessage(shortcutStatus, '链接不能为空', true); return; }
+            const result = await DataStore.saveAdminConfig('shortcut', url, password);
+            setStatusMessage(shortcutStatus, result.message, !result.success);
+        });
+    }
+
 
     // --- 6. 初始化 ---
     showPage('home');
