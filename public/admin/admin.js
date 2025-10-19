@@ -292,9 +292,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // 调用 DataStore 时传入 durationMinutes
             const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password);
             if (result.success) {
-                generatedKeysDisplay.value = result.generatedKeys.join('\n');
+                // 【核心修正】：安全地获取 generated_keys，并使用 added_count 显示成功信息
+                const generatedKeys = Array.isArray(result.generated_keys) ? result.generated_keys : [];
+                
+                generatedKeysDisplay.value = generatedKeys.join('\n');
+                
+                // 修正：显示生成成功的消息
                 setStatusMessage(generatorStatus, `成功保存 ${result.added_count} 个新密钥！`);
-                copyKeysBtn.disabled = result.added_count === 0;
+                
+                copyKeysBtn.disabled = generatedKeys.length === 0;
             } else { throw new Error(result.message); }
         } catch (error) {
             setStatusMessage(generatorStatus, `操作失败: ${error.message}`, true);
@@ -448,4 +454,3 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- 6. 初始化 ---
     showPage('home');
 });
-//111
