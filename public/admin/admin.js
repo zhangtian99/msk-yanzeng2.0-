@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentFilter = 'all';
 
     // --- 3. DOM元素获取 ---
-    // 确保 DOM 元素获取即使失败 (返回 null) 也不会中断脚本
     const pages = { 
         home: document.getElementById('page-home'), 
         create: document.getElementById('page-create'), 
@@ -37,11 +36,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const keysTableBody = document.getElementById('keys-table-body');
     const keysTableStatus = document.getElementById('keys-table-status');
     const tabLinks = document.querySelectorAll('.tab-link');
+    
+    // 【修正点】：确保获取所有分页和搜索/筛选控件
     const prevPageBtn = document.getElementById('prevPageBtn');
     const nextPageBtn = document.getElementById('nextPageBtn');
     const pageStartSpan = document.getElementById('pageStartSpan');
     const pageEndSpan = document.getElementById('pageEndSpan');
     const totalItemsSpan = document.getElementById('totalItemsSpan');
+    const searchInput = document.getElementById('searchInput');
+    const filterSelect = document.getElementById('filterSelect');
+    
     const feishuLinkInput = document.getElementById('feishuLinkInput');
     const saveFeishuBtn = document.getElementById('saveFeishuBtn');
     const feishuStatus = document.getElementById('feishuStatus');
@@ -60,10 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const bulkActionsToolbar = document.getElementById('bulkActionsToolbar');
     const selectedCountSpan = document.getElementById('selectedCount');
     const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-
-    // 【新增 DOM 元素】
-    const searchInput = document.getElementById('searchInput');
-    const filterSelect = document.getElementById('filterSelect');
 
 
     // --- 4. 核心功能函数 ---
@@ -220,13 +220,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const updateBulkActionsToolbar = () => {
+        if (!keysTableBody || !bulkActionsToolbar || !selectedCountSpan) return;
         const selectedCheckboxes = keysTableBody.querySelectorAll('.key-checkbox:checked');
         const count = selectedCheckboxes.length;
-        if (bulkActionsToolbar) {
-             bulkActionsToolbar.classList.toggle('hidden', count === 0);
-             if (selectedCountSpan) selectedCountSpan.textContent = count;
-        }
-       
+        bulkActionsToolbar.classList.toggle('hidden', count === 0);
+        selectedCountSpan.textContent = count;
         const allVisibleCheckboxes = keysTableBody.querySelectorAll('.key-checkbox');
         const selectAll = document.getElementById('selectAllCheckbox');
         if(selectAll) {
@@ -270,6 +268,36 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAndRenderKeys();
     };
 
+    const loadHomePage = async () => {
+        [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el && (el.textContent = '...'));
+        try {
+            const result = await DataStore.getStats(password);
+            if (result.success) {
+                if (statsTotalKeys) statsTotalKeys.textContent = result.data.totalKeys;
+                if (statsUsedKeys) statsUsedKeys.textContent = result.data.usedKeys;
+                if (statsUnusedKeys) statsUnusedKeys.textContent = result.data.totalKeys - result.data.usedKeys;
+            } else { throw new Error(result.message); }
+        } catch(error) {
+            [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el && (el.textContent = 'N/A'));
+        }
+    };
+
+    const loadConfigPage = async () => {
+        if (feishuLinkInput) feishuLinkInput.value = '加载中...';
+        if (shortcutLinkInput) shortcutLinkInput.value = '加载中...';
+        try {
+            const result = await DataStore.getAdminConfig(password);
+            if (result.success) {
+                if (feishuLinkInput) feishuLinkInput.value = result.data.FEISHU_TEMPLATE_LINK || '';
+                if (shortcutLinkInput) shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
+            } else { throw new Error(result.message); }
+        } catch(error) {
+            if (feishuStatus) feishuStatus.textContent = `加载失败: ${error.message}`;
+            if (feishuStatus) feishuStatus.style.color = 'red';
+        }
+    };
+
+
     const setStatusMessage = (el, message, isError = false, duration = 3000) => {
         if (!el) return;
         el.textContent = message;
@@ -299,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 调用 DataStore 时传入 durationMinutes
             const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password);
             if (result.success) {
-                // 【核心修正】：安全地获取 generated_keys，并使用 added_count 显示成功信息
+                // 【核心修复】：安全地获取 generated_keys，并使用 added_count 显示成功信息
                 const generatedKeys = Array.isArray(result.generated_keys) ? result.generated_keys : [];
                 
                 if (generatedKeysDisplay) generatedKeysDisplay.value = generatedKeys.join('\n');
@@ -379,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
     updateVisibility(initialKeyType);
 
+
     if (copyKeysBtn) {
         copyKeysBtn.addEventListener('click', () => {
             if (!generatedKeysDisplay || !generatedKeysDisplay.value) return;
@@ -399,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (searchInput) {
         searchInput.addEventListener('input', () => {
             currentSearchTerm = searchInput.value.trim();
+            currentPage = 1; // 搜索时重置页码
             fetchAndRenderKeys();
         });
     }
@@ -406,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (filterSelect) {
         filterSelect.addEventListener('change', () => {
             currentFilter = filterSelect.value;
+            currentPage = 1; // 筛选时重置页码
             fetchAndRenderKeys();
         });
     }
@@ -476,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentPage > 1) {
                 currentPage--;
                 renderCurrentPage();
-                updatePaginationControls();
+                updatePaginationControls(allKeysCache.length); // 传入总数进行更新
             }
         });
     }
@@ -488,7 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentPage < totalPages) {
                 currentPage++;
                 renderCurrentPage();
-                updatePaginationControls();
+                updatePaginationControls(allKeysCache.length); // 传入总数进行更新
             }
         });
     }
