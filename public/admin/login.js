@@ -1,7 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
-    if (sessionStorage.getItem('admin-token')) {
-        window.location.href = '/admin/';
-        return;
+   if (sessionStorage.getItem('admin-token')) {
+        // 假设管理后台主页是根目录 /admin/
+        window.location.href = '/admin/'; 
+        return; // 阻止后续逻辑执行
     }
     const passwordInput = document.getElementById('adminPassword');
     const loginBtn = document.getElementById('loginBtn');
