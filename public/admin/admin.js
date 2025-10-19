@@ -10,293 +10,251 @@ document.addEventListener('DOMContentLoaded', () => {
     let allKeysCache = [];
     let currentPage = 1;
     const itemsPerPage = 10;
-    let currentTabView = 'all'; // all, permanent, trial
+    let currentTabView = 'all'; 
     let currentSearchTerm = '';
-    let currentFilter = 'all'; // all, unused, used, expired
+    let currentFilter = 'all';
 
-    // --- 3. DOM元素获取 ---
+    // --- 3. DOM元素获取 (所有元素现在都使用 let/const 声明并直接获取) ---
+    const getElement = (id) => document.getElementById(id);
+
     const pages = { 
-        home: document.getElementById('page-home'), 
-        create: document.getElementById('page-create'), 
-        view: document.getElementById('page-view'), 
-        config: document.getElementById('page-config') 
+        home: getElement('page-home'), 
+        create: getElement('page-create'), 
+        view: getElement('page-view'), 
+        config: getElement('page-config') 
     };
     const sidebarLinks = document.querySelectorAll('.sidebar-link[data-page]');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const statsTotalKeys = document.getElementById('stats-total-keys');
-    const statsUsedKeys = document.getElementById('stats-used-keys');
-    const statsUnusedKeys = document.getElementById('stats-unused-keys');
+    const logoutBtn = getElement('logoutBtn');
 
-    // 密钥生成
-    const generatedKeysDisplay = document.getElementById('generatedKeysDisplay');
-    const generateSingleBtn = document.getElementById('generateSingleBtn');
-    const generateBatchBtn = document.getElementById('generateBatchBtn');
-    const batchQuantityInput = document.getElementById('batchQuantityInput');
-    const copyKeysBtn = document.getElementById('copyKeysBtn');
-    const keyTypeSelect = document.getElementById('keyTypeSelect');
-    const keyDurationInput = document.getElementById('keyDurationInput');
-    const keyDurationUnit = document.getElementById('keyDurationUnit');
-    const keyDurationWrapper = document.getElementById('keyDurationWrapper');
-    const generateStatus = document.getElementById('generateStatus');
+    // 统计数据
+    const statsTotalKeys = getElement('stats-total-keys');
+    const statsUsedKeys = getElement('stats-used-keys');
+    const statsUnusedKeys = getElement('stats-unused-keys');
+
+    // 密钥生成 (Create Page)
+    const generatedKeysDisplay = getElement('generatedKeysDisplay');
+    const generateSingleBtn = getElement('generateSingleBtn');
+    const generateBatchBtn = getElement('generateBatchBtn');
+    const batchQuantityInput = getElement('batchQuantityInput');
+    const copyKeysBtn = getElement('copyKeysBtn');
+    const generatorStatus = getElement('generatorStatus');
+    const keyTypeRadios = document.querySelectorAll('input[name="keyType"]');
     
-    // 密钥查看
-    const keysTableBody = document.getElementById('keysTableBody');
-    const keysTableHead = document.getElementById('keysTableHead');
-    const searchInput = document.getElementById('searchInput');
-    const searchBtn = document.getElementById('searchBtn');
-    const filterSelect = document.getElementById('filterSelect');
-    const tabAllBtn = document.getElementById('tabAllBtn');
-    const tabPermanentBtn = document.getElementById('tabPermanentBtn');
-    const tabTrialBtn = document.getElementById('tabTrialBtn');
-    const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
-    const prevPageBtn = document.getElementById('prevPageBtn');
-    const nextPageBtn = document.getElementById('nextPageBtn');
-    const currentPageSpan = document.getElementById('currentPage');
-    const totalPagesSpan = document.getElementById('totalPages');
-    const totalKeysCountSpan = document.getElementById('totalKeysCount');
-
-    // 配置
-    const feishuLinkInput = document.getElementById('feishuLinkInput');
-    const shortcutLinkInput = document.getElementById('shortcutLinkInput');
-    const saveFeishuBtn = document.getElementById('saveFeishuBtn');
-    const saveShortcutBtn = document.getElementById('saveShortcutBtn');
-    const feishuStatus = document.getElementById('feishuStatus');
-    const shortcutStatus = document.getElementById('shortcutStatus');
-
-
-    // --- 4. 辅助函数 ---
-
-    // 状态信息显示
-    const setStatusMessage = (element, message, isError = false) => {
-        element.textContent = message;
-        element.style.color = isError ? 'red' : 'green';
-    };
+    // 调试和时长容器
+    const trialDurationWrapper = getElement('trialDurationWrapper');
+    const debugDurationWrapper = getElement('debugDurationWrapper');
+    const debugQuantityInput = getElement('debugQuantityInput'); 
+    const debugDurationInput = getElement('debugDurationInput'); 
+    const generateDebugBtn = getElement('generateDebugBtn');
     
-    // 格式化时间戳
-    const formatTime = (isoString) => {
-        if (!isoString) return 'N/A';
-        try {
-            return new Date(isoString).toLocaleString('zh-CN', {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit'
-            });
-        } catch {
-            return '无效时间';
+    // 密钥查看 (View Page)
+    const keysTableHead = getElement('keys-table-head');
+    const keysTableBody = getElement('keys-table-body');
+    const keysTableStatus = getElement('keys-table-status'); // <--- 确保此元素在 HTML 中存在
+
+    // 分页、搜索、筛选
+    const prevPageBtn = getElement('prevPageBtn');
+    const nextPageBtn = getElement('nextPageBtn');
+    const pageStartSpan = getElement('pageStartSpan');
+    const pageEndSpan = getElement('pageEndSpan');
+    const totalItemsSpan = getElement('totalItemsSpan');
+    const searchInput = getElement('searchInput');
+    const filterSelect = getElement('filterSelect');
+    const tabLinks = document.querySelectorAll('.tab-link'); // 如果存在
+
+    // 批量操作
+    const bulkActionsToolbar = getElement('bulkActionsToolbar');
+    const selectedCountSpan = getElement('selectedCount');
+    const deleteSelectedBtn = getElement('deleteSelectedBtn');
+
+    // 配置 (Config Page)
+    const feishuLinkInput = getElement('feishuLinkInput');
+    const saveFeishuBtn = getElement('saveFeishuBtn');
+    const feishuStatus = getElement('feishuStatus');
+    const shortcutLinkInput = getElement('shortcutLinkInput');
+    const saveShortcutBtn = getElement('saveShortcutBtn');
+    const shortcutStatus = getElement('shortcutStatus');
+
+
+    // --- 4. 核心功能函数 ---
+    
+    // 状态信息显示 (增加 duration 参数)
+    const setStatusMessage = (el, message, isError = false, duration = 3000) => {
+        // 健壮性检查：如果元素不存在，立即返回
+        if (!el) {
+            console.warn(`Attempted to set status message on null element.`);
+            return;
         }
+        el.textContent = message;
+        el.style.color = isError ? 'red' : 'green';
+        setTimeout(() => { el.textContent = ''; }, duration);
     };
-    
-    // 渲染表格头部
-    const renderTableHeader = (currentFilter) => {
-        keysTableHead.innerHTML = `
-            <tr>
-                <th class="px-4 py-2 text-left w-1/12"><input type="checkbox" id="selectAllKeys"></th>
-                <th class="px-4 py-2 text-left w-2/12">密钥值</th>
-                <th class="px-4 py-2 text-left w-2/12">类型</th>
-                <th class="px-4 py-2 text-left w-2/12">状态</th>
-                <th class="px-4 py-2 text-left w-2/12">创建时间</th>
-                <th class="px-4 py-2 text-left w-2/12">操作</th>
-            </tr>
-        `;
-        // 事件绑定：全选/反选
-        const selectAllKeys = document.getElementById('selectAllKeys');
-        if (selectAllKeys) {
-            selectAllKeys.checked = false;
-            selectAllKeys.addEventListener('change', (e) => {
-                document.querySelectorAll('.key-checkbox').forEach(checkbox => {
-                    checkbox.checked = e.target.checked;
-                });
-            });
-        }
-    };
-    
-    // 渲染分页的函数
-    const renderCurrentPage = (data = allKeysCache) => {
-        const start = (currentPage - 1) * itemsPerPage;
-        const end = start + itemsPerPage;
-        const pageKeys = data.slice(start, end);
 
-        keysTableBody.innerHTML = pageKeys.map(key => {
-            const isUsed = key.validation_status === 'used';
-            const isExpired = key.key_type === 'trial' && key.expires_at && new Date() > new Date(key.expires_at);
-            const statusClass = isExpired ? 'bg-red-200 text-red-800' : isUsed ? 'bg-green-200 text-green-800' : 'bg-gray-200 text-gray-800';
-            const statusText = isExpired ? '已过期' : isUsed ? '已使用' : '未使用';
-            const expiresText = key.expires_at ? `Expires: ${formatTime(key.expires_at)}` : '';
-            const usedTimeText = key.activated_at ? `Activated: ${formatTime(key.activated_at)}` : (key.web_validated_time ? `Web Validated: ${formatTime(key.web_validated_time)}` : '');
-
-            return `
-                <tr class="border-b hover:bg-gray-50">
-                    <td class="px-4 py-2"><input type="checkbox" class="key-checkbox" data-key-value="${key.key_value}"></td>
-                    <td class="px-4 py-2 break-all text-sm">${key.key_value}</td>
-                    <td class="px-4 py-2 text-sm">${key.key_type}</td>
-                    <td class="px-4 py-2 text-xs"><span class="px-2 inline-flex leading-5 font-semibold rounded-full ${statusClass}">${statusText}</span></td>
-                    <td class="px-4 py-2 text-xs">
-                        <p>${formatTime(key.created_at)}</p>
-                        <p class="text-gray-500">${expiresText}</p>
-                        <p class="text-gray-500">${usedTimeText}</p>
-                    </td>
-                    <td class="px-4 py-2 text-sm">
-                        <button data-key-value="${key.key_value}" class="reset-key-btn text-blue-600 hover:text-blue-900 mr-2">重置</button>
-                        <button data-key-value="${key.key_value}" class="delete-key-btn text-red-600 hover:text-red-900">删除</button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
-
-        // 事件绑定：重置和删除按钮
-        document.querySelectorAll('.reset-key-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const keyValue = e.target.dataset.keyValue;
-                if (confirm(`确定要重置密钥 ${keyValue} 吗?`)) {
-                    e.target.disabled = true;
-                    e.target.textContent = '重置中...';
-                    const result = await DataStore.resetKey(keyValue, password);
-                    alert(result.message);
-                    fetchAndRenderKeys(true); // 强制重新加载数据
-                }
-            });
-        });
-        
-        document.querySelectorAll('.delete-key-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const keyValue = e.target.dataset.keyValue;
-                if (confirm(`确定要删除密钥 ${keyValue} 吗?`)) {
-                    e.target.disabled = true;
-                    e.target.textContent = '删除中...';
-                    // 假设 DataStore.deleteKey 接受 key_value 和 password
-                    const result = await DataStore.deleteKey(keyValue, password); 
-                    alert(result.message);
-                    fetchAndRenderKeys(true); // 强制重新加载数据
-                }
-            });
-        });
-    };
-    
-    // 更新分页控件的函数
-    const updatePaginationControls = (totalItems) => {
-        const totalPages = Math.ceil(totalItems / itemsPerPage);
-        currentPageSpan.textContent = currentPage;
-        totalPagesSpan.textContent = totalPages;
-        totalKeysCountSpan.textContent = totalItems;
-
-        prevPageBtn.disabled = currentPage === 1;
-        nextPageBtn.disabled = currentPage === totalPages || totalItems === 0;
-    };
-    
-    // 搜索和过滤函数
-    const filterKeys = (keys, term, filter) => {
-        const lowerCaseTerm = term.toLowerCase();
-        
-        return keys.filter(key => {
-            const matchesTerm = key.key_value.toLowerCase().includes(lowerCaseTerm);
-
-            let matchesFilter = true;
-            if (filter !== 'all') {
-                switch (filter) {
-                    case 'unused':
-                        matchesFilter = key.validation_status === 'unused';
-                        break;
-                    case 'used':
-                        matchesFilter = key.validation_status === 'used';
-                        break;
-                    case 'expired':
-                        matchesFilter = key.key_type === 'trial' && key.expires_at && new Date() > new Date(key.expires_at);
-                        break;
-                }
-            }
-            return matchesTerm && matchesFilter;
-        });
-    };
-    
-    // 获取和渲染密钥列表的主函数
-    const fetchAndRenderKeys = async (forceReload = false) => {
-        if (forceReload) {
-            // 清空缓存并重置分页
-            allKeysCache = []; 
-            currentPage = 1; 
-        }
-
-        let filteredAndSearchedKeys = allKeysCache;
-        if (allKeysCache.length === 0 || forceReload) {
-            keysTableBody.innerHTML = '<tr><td colspan="6" class="text-center py-4">加载中...</td></tr>';
-            try {
-                const result = await DataStore.getAllKeys(password);
-                if (result.success) {
-                    // 根据当前的 Tab View 过滤结果
-                    let initialKeys = result.data;
-                    if (currentTabView === 'permanent') {
-                        initialKeys = initialKeys.filter(k => k.key_type === 'permanent');
-                    } else if (currentTabView === 'trial') {
-                        initialKeys = initialKeys.filter(k => k.key_type === 'trial');
-                    }
-                    allKeysCache = initialKeys;
-                    
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch(error) {
-                keysTableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red-600">加载失败: ${error.message}</td></tr>`;
-                updatePaginationControls(0);
-                return;
-            }
-            
-            // 在获取数据后立即应用搜索和过滤
-            filteredAndSearchedKeys = filterKeys(allKeysCache, currentSearchTerm, currentFilter);
-        } else {
-            // 如果数据已缓存，则应用搜索和过滤
-            filteredAndSearchedKeys = filterKeys(allKeysCache, currentSearchTerm, currentFilter);
-        }
-
-        // 渲染页面并更新控件
-        renderCurrentPage(filteredAndSearchedKeys);
-        updatePaginationControls(filteredAndSearchedKeys.length);
-    };
-    
-    // --- 5. 页面加载函数 ---
-
-    const showPage = (pageName) => {
-        // 移除所有页面的 active 类
+    const showPage = (pageId) => {
+        const effectivePageId = pages[pageId] ? pageId : 'home';
+        // 确保页面 DOM 元素存在时才操作
         Object.values(pages).forEach(page => page && page.classList.remove('active'));
-        // 激活目标页面
-        pages[pageName] && pages[pageName].classList.add('active');
-
-        // 更新侧边栏链接的 active 状态
+        if (pages[effectivePageId]) pages[effectivePageId].classList.add('active');
+        
         sidebarLinks.forEach(link => {
-            if (link.dataset.page === pageName) {
-                link.classList.add('active');
-            } else {
-                link.classList.remove('active');
-            }
+            link.classList.remove('active');
+            if (link.dataset.page === effectivePageId) link.classList.add('active');
         });
+        if (effectivePageId === 'home') loadHomePage();
+        if (effectivePageId === 'view') loadViewPage();
+        if (effectivePageId === 'config') loadConfigPage();
+    };
 
-        // 触发页面特定的加载逻辑
-        switch (pageName) {
-            case 'home':
-                loadHomePage();
-                break;
-            case 'view':
-                loadViewPage();
-                break;
-            case 'config':
-                loadConfigPage();
-                break;
-            case 'create':
-                // 确保生成状态清空
-                generatedKeysDisplay.textContent = '';
-                setStatusMessage(generateStatus, '准备生成密钥', false);
-                break;
+    const formatLocalTimeAsRequired = (isoString) => {
+        if (!isoString) return 'N/A';
+        const date = new Date(isoString);
+        
+        // 计算 UTC+8 的时间
+        // 8小时 * 60分钟/小时 * 60秒/分钟 * 1000毫秒/秒
+        const offsetMs = 8 * 60 * 60 * 1000;
+        const localDate = new Date(date.getTime() + offsetMs);
+
+        // 提取本地时间组件
+        const year = localDate.getUTCFullYear();
+        const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(localDate.getUTCDate()).padStart(2, '0');
+        const hours = String(localDate.getUTCHours()).padStart(2, '0');
+        const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+        const seconds = String(localDate.getUTCSeconds()).padStart(2, '0');
+
+        return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
+    };
+
+    const renderTableHeader = () => {
+        let headerContent = '<tr><th class="p-4"><input type="checkbox" id="selectAllCheckbox" class="h-4 w-4"></th>';
+        const baseHeaders = `
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">密钥值</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">创建时间</th>
+        `;
+        // 统一渲染所有列，减少逻辑分支
+        headerContent += baseHeaders + `
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">过期时间</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+        `;
+
+        if (keysTableHead) {
+            keysTableHead.innerHTML = headerContent;
+            // Re-bind event listener to the new checkbox
+            const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+            if (selectAllCheckbox) {
+                 keysTableBody && selectAllCheckbox.addEventListener('click', () => {
+                     keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
+                     updateBulkActionsToolbar();
+                });
+            }
+        }
+    };
+    
+    const renderCurrentPage = () => {
+        if (!keysTableBody || !keysTableStatus) return; // 安全退出
+        keysTableBody.innerHTML = '';
+        keysTableStatus.textContent = '';
+        
+        const filteredKeys = allKeysCache; // 直接使用 API 返回的已筛选/搜索数据
+        
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const keysForCurrentPage = filteredKeys.slice(startIndex, endIndex);
+
+        if (filteredKeys.length === 0) {
+            keysTableStatus.textContent = '没有找到符合条件的密钥。';
+            return;
+        }
+        if (keysForCurrentPage.length === 0) {
+             keysTableStatus.textContent = '此页无数据。';
+             return;
+        }
+
+        keysForCurrentPage.forEach(key => {
+            const tr = document.createElement('tr');
+            const statusText = key.validation_status === 'used' ? '已激活' : '未激活';
+            const statusColor = key.validation_status === 'used' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+            const keyType = key.key_type === 'trial' ? '试用' : '永久';
+            
+            let rowContent = `<td class="p-4"><input type="checkbox" class="key-checkbox h-4 w-4" data-key-value="${key.key_value}"></td>`;
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-800">${key.key_value}</td>`;
+            rowContent += `<td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span></td>`;
+            
+            const createdText = formatLocalTimeAsRequired(key.created_at);
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${createdText}</td>`;
+            
+            // 修正：统一渲染类型和过期时间列
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${keyType === '试用' ? 'text-yellow-600' : 'text-green-600'}">${keyType}</td>`;
+            
+            const expiresText = formatLocalTimeAsRequired(key.expires_at);
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>`;
+            
+            rowContent += `
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium flex items-center gap-4">
+                    <button title="复制" data-key-value="${key.key_value}" class="copy-btn text-blue-600 hover:underline">复制</button>
+                    <button title="重置" data-key-value="${key.key_value}" class="reset-btn text-blue-600 hover:underline disabled:text-gray-400" ${key.validation_status !== 'used' ? 'disabled' : ''}>重置</button>
+                    <button title="删除" data-key-value="${key.key_value}" class="delete-btn text-red-600 hover:underline">删除</button>
+                </td>
+            `;
+            tr.innerHTML = rowContent;
+            keysTableBody.appendChild(tr);
+        });
+        updatePaginationControls(filteredKeys.length);
+    };
+
+    const updateBulkActionsToolbar = () => {
+        if (!keysTableBody || !bulkActionsToolbar || !selectedCountSpan) return;
+        const selectedCheckboxes = keysTableBody.querySelectorAll('.key-checkbox:checked');
+        const count = selectedCheckboxes.length;
+        bulkActionsToolbar.classList.toggle('hidden', count === 0);
+        selectedCountSpan.textContent = count;
+        const allVisibleCheckboxes = keysTableBody.querySelectorAll('.key-checkbox');
+        const selectAll = document.getElementById('selectAllCheckbox');
+        if(selectAll) {
+            selectAll.checked = allVisibleCheckboxes.length > 0 && count === allVisibleCheckboxes.length;
+        }
+    };
+
+    const updatePaginationControls = (totalItems) => {
+        if (!pageStartSpan || !pageEndSpan || !totalItemsSpan || !prevPageBtn || !nextPageBtn) return; // 安全退出
+
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+
+        pageStartSpan.textContent = totalItems > 0 ? startIndex + 1 : 0;
+        pageEndSpan.textContent = Math.min(endIndex, totalItems); 
+        totalItemsSpan.textContent = totalItems;
+        prevPageBtn.disabled = currentPage === 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+    };
+    
+    // 新增：封装加载列表数据的函数，带筛选/搜索参数
+    const fetchAndRenderKeys = async () => {
+        if (keysTableStatus) keysTableStatus.textContent = '正在加载...';
+        try {
+            // API 调用时传入参数
+            const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
+            if (result.success) {
+                allKeysCache = result.data;
+                currentPage = 1;
+                renderTableHeader();
+                renderCurrentPage();
+            } else { throw new Error(result.message); }
+        } catch(error) {
+             if (keysTableStatus) keysTableStatus.textContent = `加载失败: ${error.message}`;
         }
     };
 
     const loadViewPage = () => {
-        // 确保表格头渲染
-        renderTableHeader(currentFilter); 
-
-        // 重新加载数据
-        fetchAndRenderKeys(true);
+        // 第一次进入时加载数据
+        fetchAndRenderKeys();
     };
 
-    // 【保留的定义，解决了函数重复声明的错误】
     const loadHomePage = async () => {
+        // 安全检查：确保元素存在
         [statsTotalKeys, statsUsedKeys, statsUnusedKeys].forEach(el => el && (el.textContent = '...'));
         try {
             const result = await DataStore.getStats(password);
@@ -320,226 +278,229 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (shortcutLinkInput) shortcutLinkInput.value = result.data.SHORTCUT_ICLOUD_LINK || '';
             } else { throw new Error(result.message); }
         } catch(error) {
-            if (feishuStatus) feishuStatus.textContent = `加载失败: ${error.message}`;
-            if (feishuStatus) feishuStatus.style.color = 'red';
+            if (feishuStatus) setStatusMessage(feishuStatus, `加载失败: ${error.message}`, true); // 使用 setStatusMessage
+            if (shortcutStatus) setStatusMessage(shortcutStatus, `加载失败: ${error.message}`, true); // 确保 shortcutStatus 也被处理
+        }
+    };
+
+
+    // 【修改 handleGeneration 函数，使其支持分钟参数】
+    const handleGeneration = async (quantity, keyType, durationDays, durationMinutes = null) => {
+        // 禁用所有生成按钮 (需要确保这些按钮都已在 DOM 中被获取)
+        if (generateSingleBtn) generateSingleBtn.disabled = true;
+        if (generateBatchBtn) generateBatchBtn.disabled = true;
+        if (generateDebugBtn) generateDebugBtn.disabled = true;
+        
+        // 检查参数有效性
+        if (keyType === 'trial' && !durationDays && !durationMinutes) {
+            setStatusMessage(generatorStatus, '请输入有效的持续天数或分钟数。', true);
+            // 重新启用按钮
+            if (generateSingleBtn) generateSingleBtn.disabled = false;
+            if (generateBatchBtn) generateBatchBtn.disabled = false;
+            if (generateDebugBtn) generateDebugBtn.disabled = false;
+            return;
+        }
+
+        setStatusMessage(generatorStatus, `正在生成并保存 ${quantity} 个 ${durationMinutes ? durationMinutes + '分钟' : durationDays + '天'} 的密钥...`);
+        try {
+            // 调用 DataStore 时传入 durationMinutes
+            const result = await DataStore.generateAndSaveKeys(quantity, keyType, durationDays, durationMinutes, password);
+            if (result.success) {
+                // 【核心修复】：安全地获取 generated_keys，并使用 added_count 显示成功信息
+                const generatedKeys = Array.isArray(result.generated_keys) ? result.generated_keys : [];
+                
+                if (generatedKeysDisplay) generatedKeysDisplay.value = generatedKeys.join('\n');
+                
+                // 修正：显示生成成功的消息 (绿色字体)
+                setStatusMessage(generatorStatus, `成功保存 ${result.added_count} 个新密钥！`);
+                
+                if (copyKeysBtn) copyKeysBtn.disabled = generatedKeys.length === 0;
+            } else { throw new Error(result.message); }
+        } catch (error) {
+            setStatusMessage(generatorStatus, `操作失败: ${error.message}`, true);
+        }
+        
+        // 启用所有生成按钮
+        if (generateSingleBtn) generateSingleBtn.disabled = false;
+        if (generateBatchBtn) generateBatchBtn.disabled = false;
+        if (generateDebugBtn) generateDebugBtn.disabled = false;
+    };
+    
+    // 绑定原有事件 (调用修改后的 handleGeneration)
+    if (generateSingleBtn) {
+        generateSingleBtn.addEventListener('click', () => {
+            const keyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent'; // 安全获取
+            let durationDays = null;
+            if (keyType === 'trial') {
+                 // 修正：试用密钥硬编码为 3 天
+                 durationDays = 3;
+            }
+            handleGeneration(1, keyType, durationDays);
+        });
+    }
+    
+    if (generateBatchBtn) {
+        generateBatchBtn.addEventListener('click', () => {
+            const keyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent'; // 安全获取
+            let durationDays = null;
+            if (keyType === 'trial') {
+                 // 修正：试用密钥硬编码为 3 天
+                 durationDays = 3;
+            }
+            handleGeneration(parseInt(batchQuantityInput?.value, 10) || 10, keyType, durationDays);
+        });
+    }
+    
+    // 【新增调试按钮事件】
+    if (generateDebugBtn) {
+        generateDebugBtn.addEventListener('click', () => {
+            const quantity = parseInt(debugQuantityInput?.value, 10) || 1;
+            const durationMinutes = parseInt(debugDurationInput?.value, 10) || 5;
+            // 调试密钥强制使用 'trial' 类型
+            handleGeneration(quantity, 'trial', null, durationMinutes);
+        });
+    }
+
+    // 【修正显示逻辑】：根据 KeyType 切换时长输入框和调试功能的显示
+    const updateVisibility = (keyType) => {
+        const isTrial = keyType === 'trial';
+        
+        // 试用密钥时长（天）标签
+        if (trialDurationWrapper) {
+            trialDurationWrapper.style.display = isTrial ? 'block' : 'none';
+        }
+        
+        // 调试功能（分钟）
+        if (debugDurationWrapper) {
+            debugDurationWrapper.style.display = isTrial ? 'block' : 'none';
         }
     };
     
-    // --- 6. 事件绑定 ---
+    keyTypeRadios.forEach(radio => {
+        radio.addEventListener('change', (event) => {
+            updateVisibility(event.target.value);
+        });
+    });
+    
+    // 初始化时确保正确的显示状态
+    const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
+    updateVisibility(initialKeyType);
 
-    // 侧边栏导航
-    if (sidebarLinks.length > 0) {
-        sidebarLinks.forEach(link => link.addEventListener('click', (e) => {
-            e.preventDefault();
-            showPage(link.dataset.page);
-        }));
+
+    if (copyKeysBtn) {
+        copyKeysBtn.addEventListener('click', () => {
+            if (!generatedKeysDisplay || !generatedKeysDisplay.value) return;
+            // 使用 Clipboard API
+            try {
+                navigator.clipboard.writeText(generatedKeysDisplay.value).then(() => {
+                    copyKeysBtn.textContent = '已复制!';
+                    setTimeout(() => { copyKeysBtn.textContent = '一键复制'; }, 2000);
+                });
+            } catch (err) {
+                 console.error('Copy failed:', err);
+                 alert('复制失败，请手动复制。');
+            }
+        });
     }
 
-    // 退出按钮
+
+    // 绑定搜索和筛选事件
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            currentSearchTerm = searchInput.value.trim();
+            currentPage = 1; // 搜索时重置页码
+            fetchAndRenderKeys();
+        });
+    }
+
+    if (filterSelect) {
+        filterSelect.addEventListener('change', () => {
+            currentFilter = filterSelect.value;
+            currentPage = 1; // 筛选时重置页码
+            fetchAndRenderKeys();
+        });
+    }
+
+    // 【核心修复】：菜单按钮点击事件绑定
+    if (sidebarLinks.length > 0) {
+        sidebarLinks.forEach(link => link.addEventListener('click', () => showPage(link.dataset.page)));
+    }
+    
     if (logoutBtn) {
         logoutBtn.addEventListener('click', () => { 
-            sessionStorage.removeItem('admin-token');
+            sessionStorage.removeItem('admin-token'); 
             window.location.href = '/admin/login.html'; 
         });
     }
-
-    // 密钥生成页面的类型选择器
-    if (keyTypeSelect) {
-        keyTypeSelect.addEventListener('change', (e) => {
-            // 只有试用密钥才显示持续时间输入框
-            if (e.target.value === 'trial') {
-                keyDurationWrapper.classList.remove('hidden');
-            } else {
-                keyDurationWrapper.classList.add('hidden');
-            }
-        });
-    }
     
-    // 生成单个密钥按钮 (默认永久)
-    if (generateSingleBtn) {
-        generateSingleBtn.addEventListener('click', async () => {
-            generateSingleBtn.disabled = true;
-            generateSingleBtn.textContent = '生成中...';
-            generatedKeysDisplay.textContent = '';
-            
-            try {
-                // 调用批量生成接口，数量为1，类型为 permanent
-                const result = await DataStore.generateAndSaveKeys(1, 'permanent', null, null, password);
-                if (result.success && result.generated_keys.length > 0) {
-                    generatedKeysDisplay.textContent = result.generated_keys.join('\n');
-                    setStatusMessage(generateStatus, '单个永久密钥生成成功!', false);
-                } else {
-                    throw new Error(result.message || '生成失败');
-                }
-            } catch (error) {
-                setStatusMessage(generateStatus, `生成失败: ${error.message}`, true);
-            } finally {
-                generateSingleBtn.disabled = false;
-                generateSingleBtn.textContent = '生成单个密钥';
-            }
-        });
-    }
-
-    // 批量生成密钥按钮
-    if (generateBatchBtn) {
-        generateBatchBtn.addEventListener('click', async () => {
-            const quantity = parseInt(batchQuantityInput.value) || 0;
-            const keyType = keyTypeSelect.value;
-            const duration = parseInt(keyDurationInput.value) || 0;
-            const durationUnit = keyDurationUnit.value;
-
-            if (quantity <= 0) {
-                setStatusMessage(generateStatus, '生成数量必须大于 0', true);
+    // 表格操作按钮事件委托
+    if (keysTableBody) {
+        keysTableBody.addEventListener('click', async (e) => {
+            const target = e.target;
+            if (target.classList.contains('key-checkbox')) {
+                updateBulkActionsToolbar();
                 return;
             }
-            if (keyType === 'trial' && duration <= 0) {
-                setStatusMessage(generateStatus, '试用密钥必须设置大于 0 的持续时间', true);
-                return;
+            const keyValue = target.dataset.keyValue;
+            if (!keyValue) return;
+            if (target.classList.contains('copy-btn')) { 
+                navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!')); 
             }
-
-            generateBatchBtn.disabled = true;
-            generateBatchBtn.textContent = '批量生成中...';
-            generatedKeysDisplay.textContent = '';
-
-            let duration_days = null;
-            let duration_minutes = null;
-
-            if (keyType === 'trial') {
-                if (durationUnit === 'days') {
-                    duration_days = duration;
-                } else if (durationUnit === 'minutes') {
-                    duration_minutes = duration;
+            if (target.classList.contains('reset-btn')) {
+                // 重置后重新加载列表
+                if (window.confirm(`确定要重置密钥 "${keyValue}" 吗？`)) { 
+                    const result = await DataStore.resetKey(keyValue, password);
+                    if (result.success) fetchAndRenderKeys(); else alert(`重置失败: ${result.message}`);
                 }
             }
-            
-            try {
-                const result = await DataStore.generateAndSaveKeys(
-                    quantity, 
-                    keyType, 
-                    duration_days, 
-                    duration_minutes, 
-                    password
-                );
-                
-                if (result.success && result.generated_keys.length > 0) {
-                    generatedKeysDisplay.textContent = result.generated_keys.join('\n');
-                    setStatusMessage(generateStatus, `成功生成 ${result.added_count} 个密钥!`, false);
-                } else {
-                    throw new Error(result.message || '批量生成失败');
+            if (target.classList.contains('delete-btn')) {
+                // 删除后重新加载列表
+                if (window.confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
+                    const result = await DataStore.deleteKey(keyValue, password);
+                    if (result.success) fetchAndRenderKeys(); else alert(`删除失败: ${result.message}`);
                 }
-            } catch (error) {
-                setStatusMessage(generateStatus, `批量生成失败: ${error.message}`, true);
-            } finally {
-                generateBatchBtn.disabled = false;
-                generateBatchBtn.textContent = '批量生成密钥';
-            }
-        });
-    }
-    
-    // 复制密钥按钮
-    if (copyKeysBtn) {
-        copyKeysBtn.addEventListener('click', () => {
-            const keysText = generatedKeysDisplay.textContent;
-            if (keysText) {
-                navigator.clipboard.writeText(keysText).then(() => {
-                    alert('密钥已复制到剪贴板!');
-                }).catch(err => {
-                    console.error('复制失败:', err);
-                    alert('复制失败，请手动复制。');
-                });
             }
         });
     }
 
-    // 密钥查看页面的 Tab 切换
-    [tabAllBtn, tabPermanentBtn, tabTrialBtn].forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            [tabAllBtn, tabPermanentBtn, tabTrialBtn].forEach(b => b.classList.remove('active-tab'));
-            e.target.classList.add('active-tab');
-            currentTabView = e.target.dataset.tab;
-            // 重置搜索和过滤，并强制重新加载数据
-            searchInput.value = '';
-            currentSearchTerm = '';
-            filterSelect.value = 'all';
-            currentFilter = 'all';
-            fetchAndRenderKeys(true);
-        });
-    });
 
-    // 搜索按钮
-    if (searchBtn) {
-        searchBtn.addEventListener('click', () => {
-            currentPage = 1;
-            currentSearchTerm = searchInput.value.trim();
-            fetchAndRenderKeys(false); // 使用缓存数据进行搜索
-        });
-        searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                searchBtn.click();
-            }
-        });
-    }
-
-    // 筛选下拉框
-    if (filterSelect) {
-        filterSelect.addEventListener('change', (e) => {
-            currentPage = 1;
-            currentFilter = e.target.value;
-            fetchAndRenderKeys(false); // 使用缓存数据进行过滤
-        });
-    }
-
-    // 批量删除按钮
     if (deleteSelectedBtn) {
         deleteSelectedBtn.addEventListener('click', async () => {
-            const selectedKeys = Array.from(document.querySelectorAll('.key-checkbox:checked'))
-                                     .map(cb => cb.dataset.keyValue)
-                                     .filter(key => key !== 'on'); // 排除全选框的值
-
-            if (selectedKeys.length === 0) {
-                alert('请选择至少一个密钥进行删除。');
-                return;
-            }
-
-            if (confirm(`确定要删除选中的 ${selectedKeys.length} 个密钥吗?`)) {
-                deleteSelectedBtn.disabled = true;
-                deleteSelectedBtn.textContent = '删除中...';
-                
-                try {
-                    const result = await DataStore.batchDeleteKeys(selectedKeys, password);
+            const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
+            const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
+            if (keysToDelete.length === 0) return;
+            // 批量删除后重新加载列表
+            if (window.confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
+                const result = await DataStore.batchDeleteKeys(keysToDelete, password);
+                if(result.success) {
                     alert(result.message);
-                    fetchAndRenderKeys(true); // 强制重新加载数据
-                } catch(error) {
-                    alert(`批量删除失败: ${error.message}`);
-                } finally {
-                    deleteSelectedBtn.disabled = false;
-                    deleteSelectedBtn.textContent = '批量删除';
+                    fetchAndRenderKeys(); 
+                } else {
+                    alert(`删除失败: ${result.message}`);
                 }
             }
         });
     }
     
-    // 分页控件
+    // Pagination controls
     if (prevPageBtn) {
-        prevPageBtn.addEventListener('click', () => {
-            const filteredKeys = filterKeys(allKeysCache, currentSearchTerm, currentFilter);
+         prevPageBtn.addEventListener('click', () => {
             if (currentPage > 1) {
                 currentPage--;
-                renderCurrentPage(filteredKeys);
-                updatePaginationControls(filteredKeys.length); // 传入总数进行更新
+                renderCurrentPage();
+                updatePaginationControls(allKeysCache.length); // 传入总数进行更新
             }
         });
     }
 
     if (nextPageBtn) {
         nextPageBtn.addEventListener('click', () => {
-            const filteredKeys = filterKeys(allKeysCache, currentSearchTerm, currentFilter);
+            const filteredKeys = allKeysCache; // 使用当前缓存的总数
             const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
             if (currentPage < totalPages) {
                 currentPage++;
-                renderCurrentPage(filteredKeys);
-                updatePaginationControls(filteredKeys.length); // 传入总数进行更新
+                renderCurrentPage();
+                updatePaginationControls(allKeysCache.length); // 传入总数进行更新
             }
         });
     }
@@ -547,7 +508,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Config save buttons
     if (saveFeishuBtn) {
         saveFeishuBtn.addEventListener('click', async () => {
-            const url = feishuLinkInput.value.trim();
+            const url = feishuLinkInput?.value.trim() || '';
             if(!url) { setStatusMessage(feishuStatus, '链接不能为空', true); return; }
             const result = await DataStore.saveAdminConfig('feishu', url, password);
             setStatusMessage(feishuStatus, result.message, !result.success);
@@ -556,14 +517,26 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (saveShortcutBtn) {
         saveShortcutBtn.addEventListener('click', async () => {
-            const url = shortcutLinkInput.value.trim();
+            const url = shortcutLinkInput?.value.trim() || '';
             if(!url) { setStatusMessage(shortcutStatus, '链接不能为空', true); return; }
             const result = await DataStore.saveAdminConfig('shortcut', url, password);
             setStatusMessage(shortcutStatus, result.message, !result.success);
         });
     }
+
+
+    // --- 6. 初始化 ---
+    // 确保 DataStore 已加载
+    if (typeof DataStore === 'undefined') {
+        console.error("DataStore is not loaded. Please ensure /data-store.js is included before admin.js in the HTML.");
+        return; 
+    }
     
-    // --- 7. 初始化 ---
-    // 默认显示首页
-    showPage('home'); 
+    // 初始化时确保正确的显示状态 (防止切换到非 trial 页面时隐藏输入框)
+    if (initialKeyType === 'permanent') {
+        if (trialDurationWrapper) trialDurationWrapper.style.display = 'none';
+        if (debugDurationWrapper) debugDurationWrapper.style.display = 'none';
+    }
+
+    showPage('home');
 });
