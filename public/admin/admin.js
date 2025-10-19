@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keysTableBody = getElement('keys-table-body');
     const keysTableStatus = getElement('keys-table-status'); 
 
-    // 分页、搜索、筛选
+    // 分页、搜索、筛选 - 【关键修正：获取所有分页按钮】
     const prevPageBtns = getAllElements('#prevPageBtn, #mobilePrevPageBtn'); 
     const nextPageBtns = getAllElements('#nextPageBtn, #mobileNextPageBtn'); 
     
@@ -63,6 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = getElement('searchInput');
     const filterSelect = getElement('filterSelect');
     const tabLinks = getAllElements('.tab-link'); 
+    
+    // 【新增获取搜索按钮】
+    const searchBtn = getElement('searchBtn');
 
     // 批量操作
     const bulkActionsToolbar = getElement('bulkActionsToolbar');
@@ -250,6 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (keysTableStatus) keysTableStatus.textContent = '正在加载...';
         try {
             // API 调用时传入参数 - 【修正点】: 传递 currentSearchTerm 和 currentFilter
+            // 确保 DataStore.getAllKeys 现在被调用时带有搜索和筛选参数
             const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
             if (result.success) {
                 allKeysCache = result.data;
@@ -418,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    // 【关键修正：绑定搜索和筛选事件】
+    // 【关键修正：搜索事件处理函数】
     const searchHandler = () => {
         if (!searchInput) return; 
 
@@ -428,9 +432,21 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAndRenderKeys();
     };
 
+    if (searchBtn) {
+        // 绑定点击事件
+        searchBtn.addEventListener('click', searchHandler);
+    }
+    
     if (searchInput) {
-        // 重新绑定事件 (直接绑定 input 事件，确保输入时即可触发)
-        searchInput.addEventListener('input', searchHandler);
+        // 移除原有的 input 实时搜索功能
+        searchInput.removeEventListener('input', searchHandler); 
+        
+        // 监听 Enter 键，使其也能触发搜索
+        searchInput.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                searchHandler();
+            }
+        });
     }
 
     if (filterSelect) {
