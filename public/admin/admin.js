@@ -135,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Re-bind event listener to the new checkbox
             const selectAllCheckbox = document.getElementById('selectAllCheckbox');
             if (selectAllCheckbox) {
-                 selectAllCheckbox.addEventListener('click', () => {
+                 keysTableBody && selectAllCheckbox.addEventListener('click', () => {
                      keysTableBody.querySelectorAll('.key-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
                      updateBulkActionsToolbar();
                 });
@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = feishuLinkInput.value.trim();
             if(!url) { setStatusMessage(feishuStatus, '链接不能为空', true); return; }
             const result = await DataStore.saveAdminConfig('feishu', url, password);
-            setStatusMessage(feishuStatus, result.message, !result.success);
+            setStatusStatus(feishuStatus, result.message, !result.success);
         });
     }
     
