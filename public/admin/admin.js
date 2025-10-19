@@ -171,12 +171,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             rowContent += `<td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span></td>`;
             
-            // 修正：强制使用 UTC 时间格式
-            const createdText = new Date(key.created_at).toLocaleString('sv-SE', timeFormatOptions).replace(/-/g, '/'); // Using sv-SE for YYYY/MM/DD structure
+            // 修正：强制使用 UTC 时间格式，并移除毫秒和 'Z' 标记，格式化为 YYYY/MM/DD HH:MM:SS
+            const date = new Date(key.created_at);
+            const createdText = date.getFullYear() + '/' + 
+                                String(date.getUTCMonth() + 1).padStart(2, '0') + '/' + 
+                                String(date.getUTCDate()).padStart(2, '0') + ' ' +
+                                String(date.getUTCHours()).padStart(2, '0') + ':' +
+                                String(date.getUTCMinutes()).padStart(2, '0') + ':' +
+                                String(date.getUTCSeconds()).padStart(2, '0');
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${createdText}</td>`;
             
-            // 修正：强制使用 UTC 时间格式
-            const expiresText = key.expires_at ? new Date(key.expires_at).toLocaleString('sv-SE', timeFormatOptions).replace(/-/g, '/') : 'N/A';
+            // 修正：强制使用 UTC 时间格式，并移除毫秒和 'Z' 标记，格式化为 YYYY/MM/DD HH:MM:SS
+            let expiresText = 'N/A';
+            if (key.expires_at) {
+                const expiryDate = new Date(key.expires_at);
+                expiresText = expiryDate.getFullYear() + '/' + 
+                              String(expiryDate.getUTCMonth() + 1).padStart(2, '0') + '/' + 
+                              String(expiryDate.getUTCDate()).padStart(2, '0') + ' ' +
+                              String(expiryDate.getUTCHours()).padStart(2, '0') + ':' +
+                              String(expiryDate.getUTCMinutes()).padStart(2, '0') + ':' +
+                              String(expiryDate.getUTCSeconds()).padStart(2, '0');
+            }
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>`;
             
             rowContent += `
