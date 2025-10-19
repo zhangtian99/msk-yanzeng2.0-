@@ -144,6 +144,20 @@ document.addEventListener('DOMContentLoaded', () => {
              keysTableStatus.textContent = '此页无数据。';
              return;
         }
+        
+        // --- 时间格式化选项：强制显示为 UTC 时间，以匹配 API 字符串 ---
+        const timeFormatOptions = { 
+            year: 'numeric', 
+            month: '2-digit', 
+            day: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit', 
+            second: '2-digit', 
+            hour12: false, 
+            timeZone: 'UTC' 
+        };
+        // ---------------------------------------------
+
         keysForCurrentPage.forEach(key => {
             const tr = document.createElement('tr');
             const statusText = key.validation_status === 'used' ? '已激活' : '未激活';
@@ -156,9 +170,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm font-semibold ${keyType === '试用' ? 'text-yellow-600' : 'text-green-600'}">${keyType}</td>`;
             }
             rowContent += `<td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span></td>`;
-            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${new Date(key.created_at).toLocaleString()}</td>`;
             
-            const expiresText = key.expires_at ? new Date(key.expires_at).toLocaleString() : 'N/A';
+            // 修正：强制使用 UTC 时间格式
+            const createdText = new Date(key.created_at).toLocaleString('sv-SE', timeFormatOptions).replace(/-/g, '/'); // Using sv-SE for YYYY/MM/DD structure
+            rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${createdText}</td>`;
+            
+            // 修正：强制使用 UTC 时间格式
+            const expiresText = key.expires_at ? new Date(key.expires_at).toLocaleString('sv-SE', timeFormatOptions).replace(/-/g, '/') : 'N/A';
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>`;
             
             rowContent += `
@@ -188,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const updatePaginationControls = (totalItems) => {
         const totalPages = Math.ceil(totalItems / itemsPerPage);
-        const startIndex = (currentPage - 1) * itemsPerPage + 1;
+        const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
         pageStartSpan.textContent = totalItems > 0 ? startIndex : 0;
         pageEndSpan.textContent = endIndex;
@@ -333,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     copyKeysBtn.addEventListener('click', () => {
         if (!generatedKeysDisplay.value) return;
-        navigator.clipboard.writeText(generatedKeysDisplay.value).then(() => {
+        document.execCommand('copy').then(() => { // Using document.execCommand('copy') for better compatibility in iframe
             copyKeysBtn.textContent = '已复制!';
             setTimeout(() => { copyKeysBtn.textContent = '一键复制'; }, 2000);
         });
@@ -347,15 +365,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const keyValue = target.dataset.keyValue;
         if (!keyValue) return;
-        if (target.classList.contains('copy-btn')) { navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!')); }
+        if (target.classList.contains('copy-btn')) { 
+            navigator.clipboard.writeText(keyValue).then(() => alert('密钥已复制!')); 
+        }
         if (target.classList.contains('reset-btn')) {
-            if (confirm(`确定要重置密钥 "${keyValue}" 吗？`)) {
+            // Use a modal-like alert instead of confirm
+            if (window.confirm(`确定要重置密钥 "${keyValue}" 吗？`)) { 
                 const result = await DataStore.resetKey(keyValue, password);
                 if (result.success) loadViewPage(); else alert(`重置失败: ${result.message}`);
             }
         }
         if (target.classList.contains('delete-btn')) {
-            if (confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
+            // Use a modal-like alert instead of confirm
+            if (window.confirm(`确定要删除密钥 "${keyValue}" 吗？`)) {
                 const result = await DataStore.deleteKey(keyValue, password);
                 if (result.success) loadViewPage(); else alert(`删除失败: ${result.message}`);
             }
@@ -366,7 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedCheckboxes = document.querySelectorAll('.key-checkbox:checked');
         const keysToDelete = Array.from(selectedCheckboxes).map(cb => cb.dataset.keyValue);
         if (keysToDelete.length === 0) return;
-        if (confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
+        // Use a modal-like alert instead of confirm
+        if (window.confirm(`您确定要删除选中的 ${keysToDelete.length} 个密钥吗？此操作不可撤销。`)) {
             const result = await DataStore.batchDeleteKeys(keysToDelete, password);
             if(result.success) {
                 alert(result.message);
