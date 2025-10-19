@@ -91,12 +91,8 @@ export default async function handler(request, response) {
             // 2. Web 激活流程
             
             if (keyData.validation_status === 'used') {
-                // 永久密钥已激活，直接返回成功
-                if (isPermanent) {
-                    return response.status(200).json({ success: true, message: '永久密钥已激活且有效。', data: successData });
-                }
-                // 试用密钥在 Web 简单模式下只能激活一次
-                return response.status(409).json({ success: false, message: '此密钥已被使用。' });
+                // 【修正点】：移除对试用密钥在 Web 端的阻止，允许所有已激活密钥重复验证成功。
+                return response.status(200).json({ success: true, message: `${isPermanent ? '永久' : '试用'}密钥已激活且有效。`, data: successData });
             }
 
             // 【激活流程】：Web 端执行状态修改 (unused -> used)
