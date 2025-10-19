@@ -1,9 +1,13 @@
+// /public/admin/login.js
+
 document.addEventListener('DOMContentLoaded', () => {
-   if (sessionStorage.getItem('admin-token')) {
+    // 【关键新增逻辑】：如果已登录 (sessionStorage 中有 token)，则直接跳转到管理后台主页
+    if (sessionStorage.getItem('admin-token')) {
         // 假设管理后台主页是根目录 /admin/
         window.location.href = '/admin/'; 
         return; // 阻止后续逻辑执行
     }
+    
     const passwordInput = document.getElementById('adminPassword');
     const loginBtn = document.getElementById('loginBtn');
     const loginStatus = document.getElementById('loginStatus');
@@ -18,6 +22,14 @@ document.addEventListener('DOMContentLoaded', () => {
         loginStatus.textContent = '';
         loginBtn.disabled = true;
         loginBtn.textContent = '验证中...';
+
+        // 确保 DataStore 已被正确引入
+        if (typeof DataStore === 'undefined') {
+            loginStatus.textContent = '错误: 缺少 DataStore 库。请检查 login.html 是否引入 data-store.js。';
+            loginBtn.disabled = false;
+            loginBtn.textContent = '登录';
+            return;
+        }
 
         const result = await DataStore.verifyAdminPassword(password);
 
