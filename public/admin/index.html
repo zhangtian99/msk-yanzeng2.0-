@@ -221,33 +221,3 @@
     <script src="/admin/admin.js"></script>
 </body>
 </html>
-```
-
-### 检查时间戳不对齐问题 (Timezone Discrepancy)
-
-关于您提出的**时间戳对不上**的问题：
-
-* **API 返回的时间 (UTC/Z)：** `"2025-10-19T08:49:55.286Z"` (这是一个世界标准时间 UTC/GMT)
-* **管理后台显示的时间 (本地时间)：** `2025/10/19 16:49:55`
-
-**您的时间是对得上的，但它们处于不同的时区。**
-
-`Z` 在 ISO 8601 时间戳中表示 **Zulu time (UTC/GMT)**。管理后台显示的时间显然是经过了时区转换的**本地时间**。
-
-计算时差：
-
-| 时间 | 小时 (24h) |
-| :--- | :--- |
-| **本地时间** (管理后台) | 16:49:55 |
-| **UTC/Z 时间** (API) | 08:49:55 |
-| **时差** (16 - 8) | **8 小时** |
-
-这表明您的**管理后台正在以 UTC+8 时区显示时间**（这通常是北京时间 / China Standard Time）。
-
-#### 检查代码 (`admin.js`)
-
-在 `admin.js` 中，所有时间戳的显示都是通过原生的 `new Date().toLocaleString()` 完成的：
-
-```javascript
-// admin.js 中的时间显示逻辑：
-const expiresText = key.expires_at ? new Date(key.expires_at).toLocaleString() : 'N/A';
