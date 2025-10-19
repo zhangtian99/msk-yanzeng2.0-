@@ -53,7 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const keysTableBody = getElement('keys-table-body');
     const keysTableStatus = getElement('keys-table-status'); 
 
-    // 分页、搜索、筛选 - 【关键修正：获取所有分页按钮】
+    // 分页、搜索、筛选
     const prevPageBtns = getAllElements('#prevPageBtn, #mobilePrevPageBtn'); 
     const nextPageBtns = getAllElements('#nextPageBtn, #mobileNextPageBtn'); 
     
@@ -63,8 +63,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = getElement('searchInput');
     const filterSelect = getElement('filterSelect');
     const tabLinks = getAllElements('.tab-link'); 
-    
-    // 【新增获取搜索按钮】
     const searchBtn = getElement('searchBtn');
 
     // 批量操作
@@ -253,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (keysTableStatus) keysTableStatus.textContent = '正在加载...';
         try {
             // API 调用时传入参数 - 【修正点】: 传递 currentSearchTerm 和 currentFilter
-            // 确保 DataStore.getAllKeys 现在被调用时带有搜索和筛选参数
+            // 这依赖于 DataStore.getAllKeys 被修正为接受这三个参数，并后端 keys.js 支持搜索
             const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
             if (result.success) {
                 allKeysCache = result.data;
@@ -444,6 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 监听 Enter 键，使其也能触发搜索
         searchInput.addEventListener('keydown', (event) => {
             if (event.key === 'Enter') {
+                event.preventDefault(); // 阻止默认的表单提交行为
                 searchHandler();
             }
         });
