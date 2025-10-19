@@ -245,11 +245,11 @@ document.addEventListener('DOMContentLoaded', () => {
         nextPageBtns.forEach(btn => btn.disabled = isLastPage);
     };
     
-    // 新增：封装加载列表数据的函数，带筛选/搜索参数
+    // 【关键修正：修改 fetchAndRenderKeys 以传递搜索和筛选参数】
     const fetchAndRenderKeys = async () => {
         if (keysTableStatus) keysTableStatus.textContent = '正在加载...';
         try {
-            // API 调用时传入参数
+            // API 调用时传入参数 - 【修正点】: 传递 currentSearchTerm 和 currentFilter
             const result = await DataStore.getAllKeys(password, currentSearchTerm, currentFilter); 
             if (result.success) {
                 allKeysCache = result.data;
@@ -420,16 +420,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 【关键修正：绑定搜索和筛选事件】
     const searchHandler = () => {
-        if (!searchInput) return; // 再次检查元素是否存在
+        if (!searchInput) return; 
 
         currentSearchTerm = searchInput.value.trim();
         currentPage = 1; // 搜索时重置页码
+        // 触发数据加载
         fetchAndRenderKeys();
     };
 
     if (searchInput) {
-        // 移除旧的事件监听器以防重复绑定
-        // 必须使用命名函数或保存引用才能移除监听器，但由于我们在 DOMContentLoaded 中，简单重新绑定即可
+        // 重新绑定事件 (直接绑定 input 事件，确保输入时即可触发)
         searchInput.addEventListener('input', searchHandler);
     }
 
