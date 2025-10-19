@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- 3. DOM元素获取 ---
     const getElement = (id) => document.getElementById(id);
-    const getAllElements = (selector) => document.querySelectorAll(selector); // 新增获取多个元素的方法
+    const getAllElements = (selector) => document.querySelectorAll(selector);
 
     const pages = { 
         home: getElement('page-home'), 
@@ -54,8 +54,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const keysTableStatus = getElement('keys-table-status'); 
 
     // 分页、搜索、筛选 - 【关键修正：获取所有分页按钮】
-    // 桌面端按钮 ID: prevPageBtn, nextPageBtn
-    // 移动端按钮 ID: mobilePrevPageBtn, mobileNextPageBtn
     const prevPageBtns = getAllElements('#prevPageBtn, #mobilePrevPageBtn'); 
     const nextPageBtns = getAllElements('#nextPageBtn, #mobileNextPageBtn'); 
     
@@ -496,14 +494,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const filteredKeys = allKeysCache;
         const totalPages = Math.ceil(filteredKeys.length / itemsPerPage);
 
+        // 如果在最后一页尝试点击下一页，或在第一页尝试点击上一页，则返回
+        if (isNext && currentPage >= totalPages) return;
+        if (!isNext && currentPage <= 1) return;
+
         if (isNext) {
-            if (currentPage < totalPages) {
-                currentPage++;
-            }
+            currentPage++;
         } else {
-            if (currentPage > 1) {
-                currentPage--;
-            }
+            currentPage--;
         }
         renderCurrentPage();
         updatePaginationControls(filteredKeys.length);
@@ -511,11 +509,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 绑定 Prev 按钮
     prevPageBtns.forEach(btn => {
+        // 移除旧的事件监听器以防重复绑定 (仅作为健壮性措施)
+        btn.removeEventListener('click', () => handlePaginationClick(false)); 
         btn.addEventListener('click', () => handlePaginationClick(false));
     });
 
     // 绑定 Next 按钮
     nextPageBtns.forEach(btn => {
+        // 移除旧的事件监听器以防重复绑定 (仅作为健壮性措施)
+        btn.removeEventListener('click', () => handlePaginationClick(true)); 
         btn.addEventListener('click', () => handlePaginationClick(true));
     });
 
