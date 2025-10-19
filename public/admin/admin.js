@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const endIndex = startIndex + itemsPerPage;
 
         pageStartSpan.textContent = totalItems > 0 ? startIndex + 1 : 0;
-        pageEndSpan.textContent = endIndex;
+        pageEndSpan.textContent = Math.min(endIndex, totalItems); // 修正：确保 endIndex 不超过总数
         totalItemsSpan.textContent = totalItems;
         prevPageBtn.disabled = currentPage === 1;
         nextPageBtn.disabled = currentPage >= totalPages;
@@ -350,7 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 绑定原有事件 (调用修改后的 handleGeneration)
     if (generateSingleBtn) {
         generateSingleBtn.addEventListener('click', () => {
-            const keyType = document.querySelector('input[name="keyType"]:checked').value;
+            const keyType = document.querySelector('input[name="keyType"]:checked").value;
             let durationDays = null;
             if (keyType === 'trial') {
                  // 修正：试用密钥硬编码为 3 天
@@ -362,7 +362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (generateBatchBtn) {
         generateBatchBtn.addEventListener('click', () => {
-            const keyType = document.querySelector('input[name="keyType"]:checked').value;
+            const keyType = document.querySelector('input[name="keyType"]:checked").value;
             let durationDays = null;
             if (keyType === 'trial') {
                  // 修正：试用密钥硬编码为 3 天
@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     
     // 初始化时确保正确的显示状态
-    const initialKeyType = document.querySelector('input[name="keyType"]:checked')?.value || 'permanent';
+    const initialKeyType = document.querySelector('input[name="keyType"]:checked")?.value || 'permanent';
     updateVisibility(initialKeyType);
 
 
