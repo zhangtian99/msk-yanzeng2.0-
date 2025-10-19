@@ -145,16 +145,26 @@ document.addEventListener('DOMContentLoaded', () => {
              return;
         }
         
-        // --- 时间格式化选项：强制显示为 UTC 时间，以匹配 API 字符串 ---
-        const timeFormatOptions = { 
-            year: 'numeric', 
-            month: '2-digit', 
-            day: '2-digit', 
-            hour: '2-digit', 
-            minute: '2-digit', 
-            second: '2-digit', 
-            hour12: false, 
-            timeZone: 'UTC' 
+        // --- 时间格式化工具函数 ---
+        // 关键修正：修改此函数以返回本地时间 (UTC+8) 的格式，以匹配您期望的显示。
+        const formatLocalTimeAsRequired = (isoString) => {
+            if (!isoString) return 'N/A';
+            const date = new Date(isoString);
+            
+            // 计算 UTC+8 的时间
+            // 8小时 * 60分钟/小时 * 60秒/分钟 * 1000毫秒/秒
+            const offsetMs = 8 * 60 * 60 * 1000;
+            const localDate = new Date(date.getTime() + offsetMs);
+
+            // 提取本地时间组件 (注意：这里使用 getUTC* 确保我们拿到的是经过偏移后的时间，而不是浏览器本地时间)
+            const year = localDate.getUTCFullYear();
+            const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(localDate.getUTCDate()).padStart(2, '0');
+            const hours = String(localDate.getUTCHours()).padStart(2, '0');
+            const minutes = String(localDate.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(localDate.getUTCSeconds()).padStart(2, '0');
+
+            return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`;
         };
         // ---------------------------------------------
 
@@ -171,27 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             rowContent += `<td class="px-6 py-4"><span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusColor}">${statusText}</span></td>`;
             
-            // 修正：强制使用 UTC 时间格式，并移除毫秒和 'Z' 标记，格式化为 YYYY/MM/DD HH:MM:SS
-            const date = new Date(key.created_at);
-            const createdText = date.getFullYear() + '/' + 
-                                String(date.getUTCMonth() + 1).padStart(2, '0') + '/' + 
-                                String(date.getUTCDate()).padStart(2, '0') + ' ' +
-                                String(date.getUTCHours()).padStart(2, '0') + ':' +
-                                String(date.getUTCMinutes()).padStart(2, '0') + ':' +
-                                String(date.getUTCSeconds()).padStart(2, '0');
+            // 修正：使用自定义工具函数显示 UTC+8 时间
+            const createdText = formatLocalTimeAsRequired(key.created_at);
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${createdText}</td>`;
             
-            // 修正：强制使用 UTC 时间格式，并移除毫秒和 'Z' 标记，格式化为 YYYY/MM/DD HH:MM:SS
-            let expiresText = 'N/A';
-            if (key.expires_at) {
-                const expiryDate = new Date(key.expires_at);
-                expiresText = expiryDate.getFullYear() + '/' + 
-                              String(expiryDate.getUTCMonth() + 1).padStart(2, '0') + '/' + 
-                              String(expiryDate.getUTCDate()).padStart(2, '0') + ' ' +
-                              String(expiryDate.getUTCHours()).padStart(2, '0') + ':' +
-                              String(expiryDate.getUTCMinutes()).padStart(2, '0') + ':' +
-                              String(expiryDate.getUTCSeconds()).padStart(2, '0');
-            }
+            // 修正：使用自定义工具函数显示 UTC+8 时间
+            const expiresText = formatLocalTimeAsRequired(key.expires_at);
             rowContent += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${expiresText}</td>`;
             
             rowContent += `
@@ -222,8 +217,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const updatePaginationControls = (totalItems) => {
         const totalPages = Math.ceil(totalItems / itemsPerPage);
         const startIndex = (currentPage - 1) * itemsPerPage;
-        const endIndex = Math.min(currentPage * itemsPerPage, totalItems);
-        pageStartSpan.textContent = totalItems > 0 ? startIndex : 0;
+        const endIndex = startIndex + itemsPerPage;
+        const pageStartSpan = document.getElementById('pageStartSpan');
+        const pageEndSpan = document.getElementById('pageEndSpan');
+        const totalItemsSpan = document.getElementById('totalItemsSpan');
+
+        pageStartSpan.textContent = totalItems > 0 ? startIndex + 1 : 0;
         pageEndSpan.textContent = endIndex;
         totalItemsSpan.textContent = totalItems;
         prevPageBtn.disabled = currentPage === 1;
