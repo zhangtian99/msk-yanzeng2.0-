@@ -530,7 +530,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const url = feishuLinkInput.value.trim();
             if(!url) { setStatusMessage(feishuStatus, '链接不能为空', true); return; }
             const result = await DataStore.saveAdminConfig('feishu', url, password);
-            setStatusStatus(feishuStatus, result.message, !result.success);
+            setStatusMessage(feishuStatus, result.message, !result.success);
         });
     }
     
