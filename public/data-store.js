@@ -1,3 +1,4 @@
+// /public/data-store.js
 const DataStore = {
     // 这是一个通用的辅助函数，用来处理所有API请求的响应
     async _handleApiResponse(response, errorMessagePrefix) {
@@ -24,7 +25,6 @@ const DataStore = {
         return this._handleApiResponse(await fetch(`/api/admin/stats?password=${encodeURIComponent(password)}`), "获取统计数据失败");
     },
     
-    // 【修正点】：getAllKeys 现在接受 search 和 filter 参数
     async getAllKeys(password, search = '', filter = 'all') {
         const queryParams = new URLSearchParams({ 
             password: password, 
@@ -87,6 +87,10 @@ const DataStore = {
     },
 
     // --- 用户前端需要的方法 ---
+    
+    /**
+     * Web 端验证密钥有效性并激活。只允许激活一次。
+     */
     async validateKey(key, userId) {
         const payload = { key };
         if (userId) {
@@ -99,10 +103,15 @@ const DataStore = {
         }), "密钥验证失败");
     },
     
-    async checkTrialStatus(key) {
-        return this._handleApiResponse(await fetch("/api/keys/check-trial-status", {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ key })
-        }), "试用密钥检查失败");
+    /**
+     * API 验证：只验证密钥是否存在、是否过期，返回密钥类型、到期时间等信息，但不修改状态。
+     */
+    async validateKeyApi(key) {
+         return this._handleApiResponse(await fetch("/api/validate", {
+            method: "POST", 
+            headers: { "Content-Type": "application/json" }, 
+            body: JSON.stringify({ key: key })
+        }), "API 密钥验证失败");
     },
     
     async getConfig() {

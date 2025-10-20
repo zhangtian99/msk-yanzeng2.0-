@@ -1,3 +1,4 @@
+// /api/validate-key-web.js (保持上一步的修正)
 import { kv } from '@vercel/kv';
 
 export default async function handler(request, response) {
