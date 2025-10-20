@@ -1,3 +1,4 @@
+// /api/admin/reset-key.js (修正后)
 import { kv } from '@vercel/kv';
 
 function checkAuth(password) {
@@ -28,12 +29,14 @@ export default async function handler(request, response) {
 
         const existingData = await kv.hgetall(keyName);
 
-        // 更新密钥状态 (移除 ID 清理逻辑)
+        // 【核心修正】：重置密钥状态和所有关联计数
         await kv.hset(keyName, {
             ...existingData, 
             validation_status: 'unused', 
             web_validated_time: null,
             activated_at: null,
+            api_checks: '0', // 重置 API 验证次数
+            // 注意：不重置 user_id，因为 user:trial_used 标记仍需要保留
         });
 
         return response.status(200).json({ success: true, message: `密钥 ${key_value} 已成功重置为未使用状态` });

@@ -1,4 +1,4 @@
-// /public/data-store.js
+// /public/data-store.js (修正后)
 const DataStore = {
     // 这是一个通用的辅助函数，用来处理所有API请求的响应
     async _handleApiResponse(response, errorMessagePrefix) {
